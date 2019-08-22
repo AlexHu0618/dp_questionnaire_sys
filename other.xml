@@ -1,0 +1,36 @@
+<application>
+  <component name="CvsApplicationLevelConfiguration">
+    <option name="PATH_TO_PASSWORD_FILE" value="$userdir/.cvspass" />
+  </component>
+  <component name="PyCodeInsightSettings">
+    <option name="RENAME_SEARCH_IN_COMMENTS_FOR_CLASS" value="true" />
+    <option name="RENAME_SEARCH_NON_CODE_FOR_CLASS" value="true" />
+  </component>
+  <component name="PyTestFrameworkService">
+    <option name="SDK_TO_PYTEST">
+      <map>
+        <entry key="$USER_HOME$/PycharmProjects/flaskTest/venv/bin/python" value="false" />
+        <entry key="$USER_HOME$/PycharmProjects/test/venv/bin/python" value="false" />
+        <entry key="$USER_HOME$/PycharmProjects/testLog/venv/bin/python" value="false" />
+        <entry key="$USER_HOME$/PycharmProjects/untitled/venv/bin/python" value="false" />
+        <entry key="$USER_HOME$/PycharmProjects/webSocket/venv/bin/python" value="false" />
+      </map>
+    </option>
+    <option name="SDK_TO_NOSETEST">
+      <map>
+        <entry key="$USER_HOME$/PycharmProjects/test/venv/bin/python" value="false" />
+        <entry key="$USER_HOME$/PycharmProjects/testLog/venv/bin/python" value="false" />
+        <entry key="$USER_HOME$/PycharmProjects/untitled/venv/bin/python" value="false" />
+        <entry key="$USER_HOME$/PycharmProjects/webSocket/venv/bin/python" value="false" />
+      </map>
+    </option>
+    <option name="SDK_TO_TRIALTEST">
+      <map>
+        <entry key="$USER_HOME$/PycharmProjects/test/venv/bin/python" value="false" />
+        <entry key="$USER_HOME$/PycharmProjects/testLog/venv/bin/python" value="false" />
+        <entry key="$USER_HOME$/PycharmProjects/untitled/venv/bin/python" value="false" />
+        <entry key="$USER_HOME$/PycharmProjects/webSocket/venv/bin/python" value="false" />
+      </map>
+    </option>
+  </component>
+</application>
