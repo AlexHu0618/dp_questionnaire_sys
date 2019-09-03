@@ -17,7 +17,9 @@ def create_app(config_name):
     db.init_app(app=app)
 
     # register the route blueprint to the app
+    from .auth import auth as auth_buleprint
     from .main import main as main_blueprint
+    app.register_blueprint(auth_buleprint)
     app.register_blueprint(main_blueprint)
 
     return app
