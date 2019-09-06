@@ -1,5 +1,5 @@
 # coding: utf-8
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Table
 from sqlalchemy.schema import FetchedValue
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql.types import BIT
@@ -10,7 +10,7 @@ Base = declarative_base()
 metadata = Base.metadata
 
 
-class InfoDoctor(Base):
+class Doctor(Base):
     __tablename__ = 'info_doctor'
 
     id = Column(Integer, primary_key=True)
@@ -22,10 +22,12 @@ class InfoDoctor(Base):
     nickname = Column(String(20))
     password = Column(String(128))
 
-    role = relationship('InfoRole', primaryjoin='InfoDoctor.role_id == InfoRole.id', backref='info_doctors')
+    role = relationship('Role', primaryjoin='Doctor.role_id == Role.id', backref='info_doctors')
+    patients = relationship('Patient', secondary='t_map_doctor_patient', backref='info_doctors')
+    questionnaires = relationship('Questionnaire', secondary='t_map_doctor_questionnaire', backref='info_doctors')
 
 
-class InfoOption(Base):
+class Option(Base):
     __tablename__ = 'info_option'
 
     id = Column(Integer, primary_key=True)
@@ -34,19 +36,11 @@ class InfoOption(Base):
     score = Column(Float, nullable=False, server_default=FetchedValue())
     total_votes = Column(Integer, server_default=FetchedValue())
 
-    question = relationship('InfoQuestion', primaryjoin='InfoOption.question_id == InfoQuestion.id', backref='info_options')
+    question = relationship('Question', primaryjoin='Option.question_id == Question.id', backref='info_options')
+    pqs = relationship('MapPatientQuestionnaire', secondary='t_map_option_record', backref='info_options')
 
 
-class InfoOptionRecord(Base):
-    __tablename__ = 'info_option_record'
-
-    pq_id = Column(Integer, primary_key=True)
-    option_id = Column(ForeignKey('info_option.id'), nullable=False, index=True)
-
-    option = relationship('InfoOption', primaryjoin='InfoOptionRecord.option_id == InfoOption.id', backref='info_option_records')
-
-
-class InfoPatient(Base):
+class Patient(Base):
     __tablename__ = 'info_patient'
 
     id = Column(Integer, primary_key=True)
@@ -64,7 +58,7 @@ class InfoPatient(Base):
     wechat_openid = Column(String(30))
 
 
-class InfoResult1(InfoPatient):
+class Result1(Patient):
     __tablename__ = 'info_result1'
 
     patient_id = Column(ForeignKey('info_patient.id'), primary_key=True)
@@ -77,14 +71,14 @@ class InfoResult1(InfoPatient):
     adverse_event = Column(String(150))
 
 
-class InfoQtype(Base):
+class Qtype(Base):
     __tablename__ = 'info_qtype'
 
     id = Column(Integer, primary_key=True)
     topic_name = Column(String(50))
 
 
-class InfoQuestion(Base):
+class Question(Base):
     __tablename__ = 'info_question'
 
     id = Column(Integer, primary_key=True)
@@ -93,11 +87,11 @@ class InfoQuestion(Base):
     questionnaire_id = Column(ForeignKey('info_questionnaire.id'), nullable=False, index=True)
     qtype_id = Column(ForeignKey('info_qtype.id'), index=True)
 
-    qtype = relationship('InfoQtype', primaryjoin='InfoQuestion.qtype_id == InfoQtype.id', backref='info_questions')
-    questionnaire = relationship('InfoQuestionnaire', primaryjoin='InfoQuestion.questionnaire_id == InfoQuestionnaire.id', backref='info_questions')
+    qtype = relationship('Qtype', primaryjoin='Question.qtype_id == Qtype.id', backref='info_questions')
+    questionnaire = relationship('Questionnaire', primaryjoin='Question.questionnaire_id == Questionnaire.id', backref='info_questions')
 
 
-class InfoQuestionnaire(Base):
+class Questionnaire(Base):
     __tablename__ = 'info_questionnaire'
 
     id = Column(String(50), primary_key=True)
@@ -111,33 +105,32 @@ class InfoQuestionnaire(Base):
     result_table_name = Column(String(50))
 
 
-class InfoRole(Base):
+class Role(Base):
     __tablename__ = 'info_role'
 
     id = Column(Integer, primary_key=True)
     name = Column(String(20), server_default=FetchedValue())
 
 
-class MapDoctorPatient(Base):
-    __tablename__ = 'map_doctor_patient'
-
-    id = Column(Integer, primary_key=True)
-    doctor_id = Column(ForeignKey('info_doctor.id'), nullable=False, index=True)
-    patient_id = Column(ForeignKey('info_patient.id'), nullable=False, index=True)
-
-    doctor = relationship('InfoDoctor', primaryjoin='MapDoctorPatient.doctor_id == InfoDoctor.id', backref='map_doctor_patients')
-    patient = relationship('InfoPatient', primaryjoin='MapDoctorPatient.patient_id == InfoPatient.id', backref='map_doctor_patients')
+t_map_doctor_patient = Table(
+    'map_doctor_patient', metadata,
+    Column('doctor_id', ForeignKey('info_doctor.id'), nullable=False, index=True),
+    Column('patient_id', ForeignKey('info_patient.id'), nullable=False, index=True)
+)
 
 
-class MapDoctorQuestionnaire(Base):
-    __tablename__ = 'map_doctor_questionnaire'
+t_map_doctor_questionnaire = Table(
+    'map_doctor_questionnaire', metadata,
+    Column('doctor_id', ForeignKey('info_doctor.id'), nullable=False, index=True),
+    Column('questionnaire_id', ForeignKey('info_questionnaire.id'), nullable=False, index=True)
+)
 
-    id = Column(Integer, primary_key=True)
-    doctor_id = Column(ForeignKey('info_doctor.id'), nullable=False, index=True)
-    questionnaire_id = Column(ForeignKey('info_questionnaire.id'), nullable=False, index=True)
 
-    doctor = relationship('InfoDoctor', primaryjoin='MapDoctorQuestionnaire.doctor_id == InfoDoctor.id', backref='map_doctor_questionnaires')
-    questionnaire = relationship('InfoQuestionnaire', primaryjoin='MapDoctorQuestionnaire.questionnaire_id == InfoQuestionnaire.id', backref='map_doctor_questionnaires')
+t_map_option_record = Table(
+    'map_option_record', metadata,
+    Column('pq_id', ForeignKey('map_patient_questionnaire.id'), nullable=False, index=True),
+    Column('option_id', ForeignKey('info_option.id'), nullable=False, index=True)
+)
 
 
 class MapPatientQuestionnaire(Base):
@@ -153,6 +146,6 @@ class MapPatientQuestionnaire(Base):
     dt_built = Column(DateTime)
     dt_lasttime = Column(DateTime)
 
-    doctor = relationship('InfoDoctor', primaryjoin='MapPatientQuestionnaire.doctor_id == InfoDoctor.id', backref='map_patient_questionnaires')
-    patient = relationship('InfoPatient', primaryjoin='MapPatientQuestionnaire.patient_id == InfoPatient.id', backref='map_patient_questionnaires')
-    questionnaire = relationship('InfoQuestionnaire', primaryjoin='MapPatientQuestionnaire.questionnaire_id == InfoQuestionnaire.id', backref='map_patient_questionnaires')
+    doctor = relationship('Doctor', primaryjoin='MapPatientQuestionnaire.doctor_id == Doctor.id', backref='map_patient_questionnaires')
+    patient = relationship('Patient', primaryjoin='MapPatientQuestionnaire.patient_id == Patient.id', backref='map_patient_questionnaires')
+    questionnaire = relationship('Questionnaire', primaryjoin='MapPatientQuestionnaire.questionnaire_id == Questionnaire.id', backref='map_patient_questionnaires')

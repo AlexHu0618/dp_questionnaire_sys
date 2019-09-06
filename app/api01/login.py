@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-# @Time    : 9/4/19 4:01 PM
+# @Time    : 9/5/19 11:33 AM
 # @Author  : Alex Hu
 # @Contact : jthu4alex@163.com
-# @FileName: __init__.py.py
+# @FileName: login.py
 # @Software: PyCharm
 # @Blog    : http://www.gzrobot.net/aboutme
-# @version : 0.1.0
+# @version : 0.2.1
 
-from .models import Doctor, Patient

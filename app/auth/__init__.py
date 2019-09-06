@@ -11,7 +11,7 @@
 
 from flask import Blueprint
 
-auth = Blueprint('auth', __name__, url_prefix='/login')  # the 2 arg is Blueprint name and which package the Blueprint belong to
+auth = Blueprint('auth', __name__, url_prefix='/auth')  # the 2 arg is Blueprint name and which package the Blueprint belong to
 
 from . import views   # the route actually in the model views.py, import it that can \
                                 # relevance route and Blueprint, must be imported at the end of Blueprint
