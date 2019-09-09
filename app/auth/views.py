@@ -13,4 +13,4 @@ from flask import render_template
 
 @auth.route('/', methods=['GET'])
 def login():
-    return render_template('indexMine.html')
+    return render_template('index.html.bak')

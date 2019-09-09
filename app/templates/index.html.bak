@@ -1,1 +1,201 @@
-<!DOCTYPE html><html><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" name=viewport id=viewport><meta name=renderer content=webkit><title>盛智工业云</title><!--[if lt IE 9]>			<script src="../script/hack/html5shiv-3.7.2.js"></script>			<script src="../script/hack/respond-1.4.2.js"></script>	<![endif]--><link href=/static/css/app.0595fba649d96dcad3dd52c7b7ef34c7.css rel=stylesheet></head><body><div id=app></div><script type=text/javascript src=/static/js/manifest.2ae2e69a05c33dfc65f8.js></script><script type=text/javascript src=/static/js/vendor.8157414d5b00d6c04d96.js></script><script type=text/javascript src=/static/js/app.3f48975b859d212f6741.js></script></body><style>body {    min-height: 100%;  }  .el-notification {    left: 16px !important;    right: 16px !important;    width: auto !important;    z-index: 999999 !important;  }  .v-modal {    z-index: 999998 !important;  }  .el-select-dropdown.el-popper {    z-index: 999999 !important;  }  .el-message-box__wrapper {    z-index: 999999 !important;  }  .el-message {    z-index: 99999999 !important;  }  .el-dropdown-menu {    z-index: 999999 !important;  }</style></html>
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}  # use bootstrap to render the Flask-WTF
+
+{% block title %}盛智云{% endblock %}
+
+{% block page_content %}
+<div class="info">
+    <h1>Hello,
+        {% if name %}
+        {{ name }}
+        {% else %}
+        Stranger
+        {% endif %}!
+    </h1>
+    {% if not known %}
+    <p>Pleased to meet you!</p>
+    {% else %}
+    <p>Happy to see you again!</p>
+    {% endif %}
+    <p>The local date and time is {{ moment(current_time).format('LLL') }}. That was {{ moment(current_time).fromNow(refresh=True) }}</p>
+    <small id="url_show"></small>
+    <div id="log"></div>
+</div>
+<div class="form">
+{{ wtf.quick_form(form) }}
+</div>
+<div class="table">
+    <table class="table table-striped">
+	<caption style="text-align:center">参数信息</caption>
+	<thead>
+		<tr>
+			<th>设备</th>
+			<th>设定阀值</th>
+			<th>当前数值</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>内存</td>
+            <td>3072MB</td>
+            <td id="memVal" style="color:blue"></td>
+		</tr>
+		<tr>
+			<td>CPU1</td>
+			<td>40%</td>
+            <td id="cpu1Val" style="color:blue"></td>
+		</tr>
+		<tr>
+			<td>CPU2</td>
+			<td>30%</td>
+			<td id="cpu2Val" style="color:blue"></td>
+		</tr>
+        <tr>
+            <td>CPU3</td>
+            <td>40%</td>
+            <td id="cpu3Val" style="color:blue"></td>
+        </tr>
+        <tr>
+            <td>CPU4</td>
+            <td>50%</td>
+            <td id="cpu4Val" style="color:blue"></td>
+        </tr>
+	</tbody>
+</table>
+</div>
+<div id="memoryShow">
+    <button id="btnChange">Change</button>
+</div>
+<div id="cpuShow" style="height:500px;border:1px solid #ccc;padding:10px;"></div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+    <script type="text/javascript" src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
+    <script type="text/javascript" src="//cdn.bootcss.com/socket.io/1.5.1/socket.io.min.js"></script>
+    <!-- ECharts 3 引入 -->
+    <script src="http://echarts.baidu.com/dist/echarts.min.js"></script>
+
+<script type="text/javascript">
+
+    //--- 折柱 ---
+    var myChart = echarts.init(document.getElementById('cpuShow'));
+
+    myChart.setOption({
+        title: {
+            text: '服务器系统CPU监控'
+        },
+        tooltip: {},
+        legend: {
+            data:['cpu1','cpu2','cpu3','cpu4']
+        },
+        xAxis: {
+            data: []
+        },
+        yAxis: {},
+        series: [{
+            name: 'cpu1',
+            type: 'line',
+            data: []
+        },{
+            name: 'cpu2',
+            type: 'line',
+            data: []
+        },{
+            name: 'cpu3',
+            type: 'line',
+            data: []
+        },{
+            name: 'cpu4',
+            type: 'line',
+            data: []
+        }]
+    });
+
+    // 本人笔记本有四个cpu，读者朋友请根据自己的情况，相应修改！！
+    // 五个全局变量：time、cpu1、cpu2、cpu3、cpu4
+    var time = ["","","","","","","","","",""],
+        cpu1 = [0,0,0,0,0,0,0,0,0,0],
+        cpu2 = [0,0,0,0,0,0,0,0,0,0],
+        cpu3 = [0,0,0,0,0,0,0,0,0,0],
+        cpu4 = [0,0,0,0,0,0,0,0,0,0]
+
+
+    //准备好统一的 callback 函数
+    var update_mychart;
+    update_mychart = function (res) { //res是json格式的response对象
+
+        // 隐藏加载动画
+        myChart.hideLoading();
+
+        // 准备数据
+        time.push(res.data.time);
+        cpu1.push(parseFloat(res.data.cpus[0]));
+        cpu2.push(parseFloat(res.data.cpus[1]));
+        cpu3.push(parseFloat(res.data.cpus[2]));
+        cpu4.push(parseFloat(res.data.cpus[3]));
+        if (time.length >= 10) {
+            time.shift();
+            cpu1.shift();
+            cpu2.shift();
+            cpu3.shift();
+            cpu4.shift();
+        }
+        $("#memVal").html(res.data.memory_used)
+        $("#cpu1Val").html(res.data.cpus[0])
+        $("#cpu2Val").html(res.data.cpus[1])
+        $("#cpu3Val").html(res.data.cpus[2])
+        $("#cpu4Val").html(res.data.cpus[3])
+
+        // 填入数据
+        myChart.setOption({
+            xAxis: {
+                data: time
+            },
+            series: [{
+                name: 'cpu1', // 根据名字对应到相应的系列
+                data: cpu1
+            }, {
+                name: 'cpu2',
+                data: cpu2
+            }, {
+                name: 'cpu3',
+                data: cpu3
+            }, {
+                name: 'cpu4',
+                data: cpu4
+            }]
+        });
+
+    };
+
+    // 首次显示加载动画
+    myChart.showLoading();
+
+
+    // 建立socket连接，等待服务器“推送”数据，用回调函数更新图表
+    $(document).ready(function() {
+        namespace = '/data_refresh';
+        var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+        $("#url_show").text("websocket URL: " + location.protocol + '//' + document.domain + ':' + location.port + namespace);
+        socket.on('setting_production_time', function(list) {
+            console.log(list)
+        });
+        socket.on('test', function(list) {
+            console.log(list)
+        });
+
+        $('#btnChange').click(function() {
+            socket.emit('setting_production_time', {"args": {"code": "1812060402", "begintime": "", "endtime": "2018-12-18 14:46:09"}}, function(data){
+                if (data == null)
+                    alert("data is null")
+                console.log(data)
+            })
+        });
+
+    });
+
+
+</script>
+
+{% endblock %}

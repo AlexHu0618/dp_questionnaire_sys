@@ -1,5 +1,11 @@
 # coding: utf-8
-from .. import db
+from .. import db, login_manager
+from flask_login import UserMixin
+
+
+@login_manager.user_loader
+def get_user(ident):
+    return Doctor.query.get(int(ident))
 
 
 t_map_doctor_patient = db.Table(
@@ -23,7 +29,7 @@ t_map_option_record = db.Table(
 )
 
 
-class Doctor(db.Model):
+class Doctor(db.Model, UserMixin):
     __tablename__ = 'info_doctor'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -38,6 +44,14 @@ class Doctor(db.Model):
     role = db.relationship('Role', primaryjoin='Doctor.role_id == Role.id', backref=db.backref('info_doctors'))
     patients = db.relationship('Patient', secondary=t_map_doctor_patient, backref=db.backref('info_doctors'))
     questionnaires = db.relationship('Questionnaire', secondary=t_map_doctor_questionnaire, backref=db.backref('info_doctors'))
+
+    def get(self, id):
+        doctor = Doctor.query.filter_by(id=id).first()
+        return doctor
+
+    def set(self, doctor):
+        db.session.add(doctor)
+        db.session.commit()
 
 
 class Option(db.Model):
