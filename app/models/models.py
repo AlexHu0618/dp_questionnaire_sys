@@ -29,7 +29,39 @@ t_map_option_record = db.Table(
 )
 
 
-class Doctor(db.Model, UserMixin):
+class Base:
+    def save(self):
+        try:
+            db.session.add(self)  # self实例化对象代表就是u对象
+            db.session.commit()
+            return 1
+        except:
+            db.session.rollback()
+            return None
+
+    # 定义静态类方法接收List参数
+    @staticmethod
+    def save_all(obj_list):
+        try:
+            db.session.add_all(obj_list)
+            db.session.commit()
+            return len(obj_list)
+        except:
+            db.session.rollback()
+            return None
+
+    # 定义删除方法
+    def delete(self):
+        try:
+            db.session.delete(self)
+            db.session.commit()
+            return 1
+        except:
+            db.session.rollback()
+            return None
+
+
+class Doctor(db.Model, UserMixin, Base):
     __tablename__ = 'info_doctor'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -45,29 +77,22 @@ class Doctor(db.Model, UserMixin):
     patients = db.relationship('Patient', secondary=t_map_doctor_patient, backref=db.backref('info_doctors'))
     questionnaires = db.relationship('Questionnaire', secondary=t_map_doctor_questionnaire, backref=db.backref('info_doctors'))
 
-    def get(self, id):
-        doctor = Doctor.query.filter_by(id=id).first()
-        return doctor
 
-    def set(self, doctor):
-        db.session.add(doctor)
-        db.session.commit()
-
-
-class Option(db.Model):
+class Option(db.Model, Base):
     __tablename__ = 'info_option'
 
     id = db.Column(db.Integer, primary_key=True)
-    question_id = db.Column(db.ForeignKey('info_question.id'), nullable=False, index=True)
+    question_id = db.Column(db.ForeignKey('info_question.id'))
     content = db.Column(db.String(50), nullable=False)
-    score = db.Column(db.Float(8, 2), nullable=False)
+    score = db.Column(db.Float(8, 2))
     total_votes = db.Column(db.Integer, server_default=db.FetchedValue())
 
-    question = db.relationship('Question', primaryjoin='Option.question_id == Question.id', backref=db.backref('info_options'))
+    # question = db.relationship('Question', back_populates='options')
+    # question = db.relationship('Question', primaryjoin='Option.question_id == Question.id', backref=db.backref('options'))
     pqs = db.relationship('MapPatientQuestionnaire', secondary=t_map_option_record, backref=db.backref('info_options'))
 
 
-class Patient(db.Model):
+class Patient(db.Model, Base):
     __tablename__ = 'info_patient'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -98,27 +123,22 @@ class Result1(Patient):
     adverse_event = db.Column(db.String(150))
 
 
-class Qtype(db.Model):
-    __tablename__ = 'info_qtype'
-
-    id = db.Column(db.Integer, primary_key=True)
-    topic_name = db.Column(db.String(50))
-
-
-class Question(db.Model):
+class Question(db.Model, Base):
     __tablename__ = 'info_question'
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200))
     need_answer = db.Column(db.SmallInteger)
     questionnaire_id = db.Column(db.ForeignKey('info_questionnaire.id'), nullable=False, index=True)
-    qtype_id = db.Column(db.ForeignKey('info_qtype.id'), index=True)
+    qtype = db.Column(db.Integer)
+    remark = db.Column(db.String(200))
 
-    qtype = db.relationship('Qtype', primaryjoin='Question.qtype_id == Qtype.id', backref=db.backref('info_questions'))
+    # options = db.relationship('Option', back_populates='question')
+    options = db.relationship('Option', backref=db.backref('info_question'))
     questionnaire = db.relationship('Questionnaire', primaryjoin='Question.questionnaire_id == Questionnaire.id', backref=db.backref('info_questions'))
 
 
-class Questionnaire(db.Model):
+class Questionnaire(db.Model, Base):
     __tablename__ = 'info_questionnaire'
 
     id = db.Column(db.String(50), primary_key=True)
@@ -132,14 +152,14 @@ class Questionnaire(db.Model):
     result_table_name = db.Column(db.String(50))
 
 
-class Role(db.Model):
+class Role(db.Model, Base):
     __tablename__ = 'info_role'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(20), server_default=db.FetchedValue())
 
 
-class MapPatientQuestionnaire(db.Model):
+class MapPatientQuestionnaire(db.Model, Base):
     __tablename__ = 'map_patient_questionnaire'
 
     id = db.Column(db.Integer, primary_key=True)
