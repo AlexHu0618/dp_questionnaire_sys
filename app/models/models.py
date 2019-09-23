@@ -22,11 +22,11 @@ t_map_doctor_questionnaire = db.Table(
 )
 
 
-t_map_option_record = db.Table(
-    'map_option_record', db.metadata,
-    db.Column('pq_id', db.ForeignKey('map_patient_questionnaire.id'), nullable=False, index=True),
-    db.Column('option_id', db.ForeignKey('info_option.id'), nullable=False, index=True)
-)
+# t_map_option_record = db.Table(
+#     'map_option_record', db.metadata,
+#     db.Column('pq_id', db.ForeignKey('map_patient_questionnaire.id'), nullable=False, index=True),
+#     db.Column('option_id', db.ForeignKey('info_option.id'), nullable=False, index=True)
+# )
 
 
 class Base:
@@ -35,8 +35,9 @@ class Base:
             db.session.add(self)  # self实例化对象代表就是u对象
             db.session.commit()
             return 1
-        except:
+        except Exception as e:
             db.session.rollback()
+            print(e)
             return None
 
     # 定义静态类方法接收List参数
@@ -46,8 +47,9 @@ class Base:
             db.session.add_all(obj_list)
             db.session.commit()
             return len(obj_list)
-        except:
+        except Exception as e:
             db.session.rollback()
+            print(e)
             return None
 
     # 定义删除方法
@@ -56,9 +58,29 @@ class Base:
             db.session.delete(self)
             db.session.commit()
             return 1
-        except:
+        except Exception as e:
             db.session.rollback()
+            print(e)
             return None
+
+
+class Hospital(db.Model, UserMixin, Base):
+    __tablename__ = 'info_hospital'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255))
+
+    questionnaires = db.relationship('Questionnaire', backref=db.backref('hospitals'))
+
+
+class Department(db.Model, UserMixin, Base):
+    __tablename__ = 'info_department'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255))
+    hospital_id = db.Column(db.ForeignKey('info_hospital.id'))
+
+    questionnaires = db.relationship('Questionnaire', backref=db.backref('departments'))
 
 
 class Doctor(db.Model, UserMixin, Base):
@@ -66,8 +88,8 @@ class Doctor(db.Model, UserMixin, Base):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(30), server_default=db.FetchedValue())
-    department = db.Column(db.String(50), server_default=db.FetchedValue())
-    hospital = db.Column(db.String(50), server_default=db.FetchedValue())
+    department_id = db.Column(db.Integer)
+    hospital_id = db.Column(db.Integer)
     medicine = db.Column(db.String(50), server_default=db.FetchedValue())
     role_id = db.Column(db.ForeignKey('info_role.id'), index=True)
     nickname = db.Column(db.String(20))
@@ -89,7 +111,7 @@ class Option(db.Model, Base):
 
     # question = db.relationship('Question', back_populates='options')
     # question = db.relationship('Question', primaryjoin='Option.question_id == Question.id', backref=db.backref('options'))
-    pqs = db.relationship('MapPatientQuestionnaire', secondary=t_map_option_record, backref=db.backref('info_options'))
+    # pqs = db.relationship('MapPatientQuestionnaire', secondary=t_map_option_record, backref=db.backref('info_options'))
 
 
 class Patient(db.Model, Base):
@@ -110,17 +132,37 @@ class Patient(db.Model, Base):
     wechat_openid = db.Column(db.String(30))
 
 
-class Result1(Patient):
-    __tablename__ = 'info_result1'
+# class ResultShudaifu(db.Model, Base):
+#     __tablename__ = 'info_result_shudaifu'
+#
+#     patient_id = db.Column(db.ForeignKey('info_patient.id'), primary_key=True)
+#     period = db.Column(db.Integer)
+#     filtration_number = db.Column(db.String(50))
+#     estimate_6w = db.Column(db.Integer)
+#     is_drug_combination = db.Column(db.Integer)
+#     drug_combination = db.Column(db.String(80))
+#     is_adverse_event = db.Column(db.Integer)
+#     adverse_event = db.Column(db.String(150))
+
+
+class ResultShudaifu(db.Model, Base):
+    __tablename__ = 'subtab_result_shudaifu'
 
     patient_id = db.Column(db.ForeignKey('info_patient.id'), primary_key=True)
+    option_id = db.Column(db.ForeignKey('info_option.id'), primary_key=True)
+
+
+class QuestionnaireStruct(db.Model, Base):
+    __tablename__ = 'info_questionnaire_struct'
+
+    id = db.Column(db.Integer, primary_key=True)
+    question_id_list = db.Column(db.String(255))
     period = db.Column(db.Integer)
-    filtration_number = db.Column(db.String(50))
-    estimate_6w = db.Column(db.Integer)
-    is_drug_combination = db.Column(db.Integer)
-    drug_combination = db.Column(db.String(80))
-    is_adverse_event = db.Column(db.Integer)
-    adverse_event = db.Column(db.String(150))
+    day_start = db.Column(db.Integer)
+    day_end = db.Column(db.Integer)
+    interval = db.Column(db.Integer)
+    respondent = db.Column(db.Integer)
+    questionnaire_id = db.Column(db.ForeignKey('info_questionnaire.id'))
 
 
 class Question(db.Model, Base):
@@ -138,18 +180,32 @@ class Question(db.Model, Base):
     questionnaire = db.relationship('Questionnaire', primaryjoin='Question.questionnaire_id == Questionnaire.id', backref=db.backref('info_questions'))
 
 
+class Medicine(db.Model, Base):
+    __tablename__ = 'info_medicine'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100))
+
+    questionnaires = db.relationship('Questionnaire', backref=db.backref('medicines'))
+
+
 class Questionnaire(db.Model, Base):
     __tablename__ = 'info_questionnaire'
 
-    id = db.Column(db.String(50), primary_key=True)
+    id = db.Column(db.String(255), primary_key=True)
     title = db.Column(db.String(50), nullable=False)
     sub_title = db.Column(db.String(50))
     direction = db.Column(db.String(50))
     dt_created = db.Column(db.DateTime)
     dt_modified = db.Column(db.DateTime)
-    thanks_msg = db.Column(db.String(50))
-    medicine = db.Column(db.String(50))
-    result_table_name = db.Column(db.String(50))
+    total_days = db.Column(db.Integer)
+    medicine_id = db.Column(db.ForeignKey('info_medicine.id'))
+    result_table_name = db.Column(db.String(100))
+    hospital_id = db.Column(db.ForeignKey('info_hospital.id'))
+    department_id = db.Column(db.ForeignKey('info_department.id'))
+    creator = db.Column(db.String(30))
+    modifier = db.Column(db.String(30))
+    code = db.Column(db.String(255))
 
 
 class Role(db.Model, Base):
