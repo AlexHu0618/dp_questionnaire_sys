@@ -10,10 +10,11 @@
 
 from flask_restful import Resource, reqparse, request
 from flask import jsonify
+import re
 import uuid
 import datetime
 from .. import db
-from ..models.models import Questionnaire, Medicine, Question, Option, Hospital, Department
+from ..models.models import Questionnaire, Question, Option, QuestionnaireStruct
 import ast
 from app import STATE_CODE
 
@@ -48,6 +49,8 @@ parser.add_argument("options", type=str, location=["args", "json", "form"])
 parser.add_argument("remark", type=str, location=["args", "form", "json"])
 parser.add_argument("id", location=["args", "json", "form"])
 parser.add_argument("info", type=str, location=["args", "json", "form"])
+parser.add_argument("model", type=str, location=["args", "json", "form"])
+parser.add_argument("model_line", type=str, location=["args", "json", "form"])
 parser.add_argument("hospital", type=int, location=["args", "json", "form"])
 parser.add_argument("department", type=int, location=["args", "json", "form"])
 parser.add_argument("treatment", type=str, location=["args", "json", "form"])
@@ -55,11 +58,23 @@ parser.add_argument("page", type=int, location=["args", "json", "form"])
 parser.add_argument("size", type=int, location=["args", "json", "form"])
 
 
+def count_time(func):
+    def wrapper(*args, **kwargs):
+        start_time = datetime.datetime.now()  # 程序开始时间
+        func(*args, **kwargs)
+        over_time = datetime.datetime.now()   # 程序结束时间
+        total_time = (over_time-start_time).total_seconds()
+        print('程序共计%s秒' % total_time)
+    return wrapper
+
+
 class Questionnaires(Resource):
     """
     Restful API for Questionnaire
     """
     def get(self):
+        # args = request.get_json()
+        # id_get = args['id']
         id_get = parser.parse_args().get('id')
         ## query single questionnaire
         if id_get is not None:
@@ -70,7 +85,35 @@ class Questionnaires(Resource):
                         'subject': q.departments.name, 'treatmentID': q.medicine_id, 'treatment': q.medicines.name, 'remark': q.direction,
                         'createMan': q.creator, 'createTime': q.dt_created.strftime('%Y-%m-%d %H:%M:%S'),
                         'editMan': q.modifier, 'editTime': q.dt_modified.strftime('%Y-%m-%d %H:%M:%S')}
-                resp = {'id': q.id, 'info': info, 'model': [], 'model_line': []}
+                model_line = []
+                model = []
+                temp = model_line
+                process_type = 0
+                respondent = 0
+                for model_type in ['model_line', 'model']:
+                    if model_type == 'model':
+                        process_type = 1
+                        temp = model
+                    m_rsl = QuestionnaireStruct.query.filter_by(questionnaire_id=id_get, process_type=process_type).all()
+                    if m_rsl:
+                        for i in m_rsl:
+                            qs_str = re.split(',', i.question_id_list)
+                            qs_id = list(map(int, qs_str))
+                            questions = []
+                            if model_type == 'model':
+                                respondent = i.respondent
+                            for j in qs_id:
+                                q = Question.query.filter_by(id=j).first()
+                                if q:
+                                    q_dict = {'id': j, 'title': q.title, 'type': q.qtype,
+                                              'options': [{'id': o.id, 'option': o.content, 'score': str(round(o.score, 2)),
+                                                           'goto': o.goto} for o in q.options]}
+                                    questions.append(q_dict)
+                            ms = {'start': i.day_start, 'end': i.day_end, 'time': i.time.strftime('%H:%M:%S'), 'interval': i.interval,
+                                  'title': i.title, 'questions': questions, 'active': False, 'scoreSwitch': False,
+                                  'id': i.id, 'for': respondent}
+                            temp.append(ms)
+                resp = {'id': q.id, 'info': info, 'model': model, 'model_line': model_line}
                 return jsonify(dict(resp, **STATE_CODE['200']))
             else:
                 return STATE_CODE['204']
@@ -139,6 +182,112 @@ class Questionnaires(Resource):
         if model is not None:
             pass
 
+    @count_time
+    def put(self):
+        args = request.get_json()
+        id_put = args['id']
+        info = args['info']
+        model_line = args['model_line']
+        model = args['model']
+        # id_put = parser.parse_args().get('id')
+        # info = ast.literal_eval(parser.parse_args().get('info'))
+        # model_line = parser.parse_args().get('model_line')
+        # model = parser.parse_args().get('model')
+        if info is None:
+            return STATE_CODE['400']
+        ## update questionnaire
+        q = Questionnaire.query.filter_by(id=id_put).first()
+        q.title = info['title']
+        q.sub_title = info['mintitle']
+        q.direction = info['remark']
+        q.dt_modified = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        q.total_days = info['cycle']
+        q.medicine_id = info['treatmentID']
+        q.hospital_id = info['hospitalID']
+        q.department_id = info['subjectID']
+        q.modifier = 'mod_tester'
+        q.code = info['code']
+        t0 = datetime.datetime.now()
+        rsl = db.session.commit()
+        print("create ", datetime.datetime.now() - t0)
+        if not rsl:
+            ## update all model
+            if model_line or model:
+                param = []
+                if model_line:
+                    param.append('model_line')
+                if model:
+                    param.append('model')
+                ## delete all the struct about this questionnaire_id
+                if q.struct:
+                    t1 = datetime.datetime.now()
+                    [db.session.delete(s) for s in q.struct]
+                    rsl = db.session.commit()
+                    print("delete structs ", datetime.datetime.now() - t1)
+                    if rsl:
+                        ## fail to delete all structs
+                        db.session.rollback()
+                        return STATE_CODE['203']
+                ## update all models
+                model_list = model_line
+                respondent = 0
+                process_type = 0
+                for p in param:
+                    if p == 'model':
+                        model_list = model
+                    ## sort the period
+                    startdays_sorted = sorted([i['start'] for i in model_list])
+                    for m in model_list:
+                        if p == 'model':
+                            respondent = m['for']
+                            process_type = 1
+                        qs = m['questions']
+                        day_start = m['start']
+                        day_end = m['end']
+                        interval = m['interval']
+                        title = m['title']
+                        period = startdays_sorted.index(day_start) + 1
+                        time = m['time']
+                        q_list = [i['id'] for i in qs]
+                        q_list = list(map(str, q_list))
+                        q_list_str = ','.join(q_list)
+                        struct = QuestionnaireStruct(day_start=day_start, day_end=day_end, interval=interval, title=title,
+                                                     time=time, questionnaire_id=id_put, question_id_list=q_list_str,
+                                                     process_type=process_type, respondent=respondent, period=period)
+                        t2 = datetime.datetime.now()
+                        rsl = QuestionnaireStruct.save(struct)
+                        print("build one struct ", datetime.datetime.now() - t2)
+                        if not rsl:
+                            return STATE_CODE['203']
+                        else:
+                            ## update process model
+                            t3 = datetime.datetime.now()
+                            for os_dict in qs:
+                                os_list = os_dict['options']
+                                if os_list is not None:
+                                    ## it is not the gap filling
+                                    for o in os_list:
+                                        option = Option.query.filter_by(id=o['id']).first()
+                                        option.score = o['score']
+                                        if 'goto' in o.keys():
+                                            if isinstance(o['goto'], int):
+                                                option.goto = o['goto']
+                                        rsl = db.session.commit()
+                                        if rsl:
+                                            ## fail to update data
+                                            db.session.rollback()
+                                            return STATE_CODE['203']
+                                elif os_dict['type'] == 3:
+                                    pass
+                                else:
+                                    db.session.rollback()
+                                    return STATE_CODE['203']
+                            print("build option ", datetime.datetime.now() - t3)
+            return STATE_CODE['200']
+        else:
+            db.session.rollback()
+            return STATE_CODE['203']
+
     def delete(self):
         id_del = parser.parse_args().get('id')
         ## delete others
@@ -165,7 +314,7 @@ class Questions(Resource):
         if id_get is not None:
             q = Question.query.filter_by(id=id_get).first()
             if q:
-                options = [i.content for i in q.options]
+                options = [{'id': i.id, 'content': i.content} for i in q.options]
                 resp = {'id': q.id, 'title': q.title, 'type': q.qtype, 'options': options, 'remark': q.remark}
                 return jsonify(dict(resp, **STATE_CODE['200']))
             else:
@@ -195,7 +344,7 @@ class Questions(Resource):
         remark = args['remark']
         q = Question(title=title, qtype=type, remark=remark)
         if options is not None:
-            q.options = [Option(content=i) for i in options]
+            q.options = [Option(content=i['content']) for i in options]
         else:
             return STATE_CODE['400']
         rsl = q.save()
@@ -229,19 +378,22 @@ class Questions(Resource):
             if os is not None:
                 [db.session.delete(o) for o in os]
                 rsl = db.session.commit()
-                if not rsl:
-                    ## the current question is not a gap filling
-                    if type_put != 3 and options_put is not None:
-                        o = [Option(question_id=id_put, content=i) for i in options_put]
-                        rsl = Option.save_all(o)
-                        if rsl:
-                            return STATE_CODE['200']
-                        else:
-                            return STATE_CODE['204']
-                    elif type_put == 3:
-                        return STATE_CODE['200']
-                    else:
-                        return STATE_CODE['203']
+                if rsl:
+                    ## fail to delete all options
+                    db.session.rollback()
+                    return STATE_CODE['203']
+            ## the current question is not a gap filling
+            if type_put != 3 and options_put is not None:
+                o = [Option(question_id=id_put, content=i['content']) for i in options_put]
+                rsl = Option.save_all(o)
+                if rsl:
+                    return STATE_CODE['200']
+                else:
+                    return STATE_CODE['204']
+            elif type_put == 3:
+                return STATE_CODE['200']
+            else:
+                return STATE_CODE['203']
         else:
             return STATE_CODE['203']
 

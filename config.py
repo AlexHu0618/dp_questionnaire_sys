@@ -21,12 +21,15 @@ class DevelopmentConfig(Config):
     #    'sqlite:///' + os.path.join(basedir, 'data-dev.sqlite')
     #SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://sa:123456@localhost/equipmentsdb'    # '?charset=utf8' is need if insert chinese
     SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://sa:123456@47.104.179.47/dp_questionnaire_sys?autocommit=true'
+    # SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://dp_tester:123456@localhost/dp_questionnaire_sys?autocommit=true'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 
 class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://sa:123456@47.104.179.47/dp_questionnaire_sys?autocommit=true'
+    # SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://dp_tester:123456@localhost/dp_questionnaire_sys?autocommit=true'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
 
 
 config = {
