@@ -97,18 +97,19 @@ class Questionnaires(Resource):
                     m_rsl = QuestionnaireStruct.query.filter_by(questionnaire_id=id_get, process_type=process_type).all()
                     if m_rsl:
                         for i in m_rsl:
-                            qs_str = re.split(',', i.question_id_list)
-                            qs_id = list(map(int, qs_str))
                             questions = []
-                            if model_type == 'model':
-                                respondent = i.respondent
-                            for j in qs_id:
-                                q = Question.query.filter_by(id=j).first()
-                                if q:
-                                    q_dict = {'id': j, 'title': q.title, 'type': q.qtype,
-                                              'options': [{'id': o.id, 'option': o.content, 'score': str(round(o.score, 2)),
-                                                           'goto': o.goto} for o in q.options]}
-                                    questions.append(q_dict)
+                            if i.question_id_list != '':
+                                qs_str = re.split(',', i.question_id_list)
+                                qs_id = list(map(int, qs_str))
+                                if model_type == 'model':
+                                    respondent = i.respondent
+                                for j in qs_id:
+                                    q = Question.query.filter_by(id=j).first()
+                                    if q:
+                                        q_dict = {'id': j, 'title': q.title, 'type': q.qtype,
+                                                  'options': [{'id': o.id, 'option': o.content, 'score': str(round(o.score, 2)),
+                                                               'goto': o.goto} for o in q.options]}
+                                        questions.append(q_dict)
                             ms = {'start': i.day_start, 'end': i.day_end, 'time': i.time.strftime('%H:%M:%S'), 'interval': i.interval,
                                   'title': i.title, 'questions': questions, 'active': False, 'scoreSwitch': False,
                                   'id': i.id, 'for': respondent}
@@ -162,6 +163,7 @@ class Questionnaires(Resource):
         model_line = parser.parse_args().get('model_line')
         model = parser.parse_args().get('model')
         if info is not None:
+            print(info)
             quuid = str(uuid.uuid1())
             dt_created = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             dt_modified = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -169,8 +171,8 @@ class Questionnaires(Resource):
             modifier = 'test'
             q = Questionnaire(id=quuid, title=info['title'], sub_title=info['mintitle'], direction=info['remark'],
                               dt_created=dt_created, dt_modified=dt_modified, total_days=info['cycle'],
-                              medicine_id=info['treatmentID'], code=info['code'], hospital_id=info['hospital'],
-                              department_id=info['subject'], creator=creator, modifier=modifier)
+                              medicine_id=info['treatmentID'], code=info['code'], hospital_id=info['hospitalID'],
+                              department_id=info['subjectID'], creator=creator, modifier=modifier)
             rsl = q.save()
             ## save info successful
             if rsl:
@@ -189,6 +191,7 @@ class Questionnaires(Resource):
         info = args['info']
         model_line = args['model_line']
         model = args['model']
+        print(info)
         # id_put = parser.parse_args().get('id')
         # info = ast.literal_eval(parser.parse_args().get('info'))
         # model_line = parser.parse_args().get('model_line')
@@ -237,6 +240,7 @@ class Questionnaires(Resource):
                         model_list = model
                     ## sort the period
                     startdays_sorted = sorted([i['start'] for i in model_list])
+                    print('period []', startdays_sorted)
                     for m in model_list:
                         if p == 'model':
                             respondent = m['for']
@@ -246,7 +250,10 @@ class Questionnaires(Resource):
                         day_end = m['end']
                         interval = m['interval']
                         title = m['title']
+                        print('day_start', day_start)
+                        print('index', startdays_sorted.index(day_start))
                         period = startdays_sorted.index(day_start) + 1
+                        print('period', period)
                         time = m['time']
                         q_list = [i['id'] for i in qs]
                         q_list = list(map(str, q_list))

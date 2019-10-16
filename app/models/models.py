@@ -64,7 +64,7 @@ class Base:
             return None
 
 
-class Hospital(db.Model, UserMixin, Base):
+class Hospital(db.Model, Base):
     __tablename__ = 'info_hospital'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -73,7 +73,7 @@ class Hospital(db.Model, UserMixin, Base):
     questionnaires = db.relationship('Questionnaire', backref=db.backref('hospitals'))
 
 
-class Department(db.Model, UserMixin, Base):
+class Department(db.Model, Base):
     __tablename__ = 'info_department'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -212,6 +212,7 @@ class Questionnaire(db.Model, Base):
     creator = db.Column(db.String(30))
     modifier = db.Column(db.String(30))
     code = db.Column(db.String(255))
+    is_release = db.Column(db.Integer)
 
     struct = db.relationship('QuestionnaireStruct', backref=db.backref('questionnaires'))
 
@@ -235,6 +236,9 @@ class MapPatientQuestionnaire(db.Model, Base):
     register_state = db.Column(db.Integer, nullable=False)
     dt_built = db.Column(db.DateTime)
     dt_lasttime = db.Column(db.DateTime)
+    current_period = db.Column(db.Integer)
+    days_remained = db.Column(db.Integer)
+    interval = db.Column(db.Integer)
 
     doctor = db.relationship('Doctor', primaryjoin='MapPatientQuestionnaire.doctor_id == Doctor.id', backref=db.backref('map_patient_questionnaires'))
     patient = db.relationship('Patient', primaryjoin='MapPatientQuestionnaire.patient_id == Patient.id', backref=db.backref('map_patient_questionnaires'))
