@@ -3,4 +3,4 @@
 
 echo Starting...
 
-uwsgi --http :5002 --gevent 1000 --http-websockets --wsgi-file manage.py --callable app
+uwsgi --http :5008 --gevent 1000 --http-websockets --wsgi-file manage.py --callable app

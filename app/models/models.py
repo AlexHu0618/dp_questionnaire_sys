@@ -108,6 +108,7 @@ class Option(db.Model, Base):
     content = db.Column(db.String(50), nullable=False)
     score = db.Column(db.Float(8, 2))
     total_votes = db.Column(db.Integer, server_default=db.FetchedValue())
+    goto = db.Column(db.Integer)
 
     # question = db.relationship('Question', back_populates='options')
     # question = db.relationship('Question', primaryjoin='Option.question_id == Question.id', backref=db.backref('options'))
@@ -130,6 +131,8 @@ class Patient(db.Model, Base):
     dt_register = db.Column(db.DateTime)
     dt_login = db.Column(db.DateTime)
     wechat_openid = db.Column(db.String(30))
+    dt_subscribe = db.Column(db.DateTime)
+    dt_unsubscribe = db.Column(db.DateTime)
 
 
 # class ResultShudaifu(db.Model, Base):
@@ -163,6 +166,9 @@ class QuestionnaireStruct(db.Model, Base):
     interval = db.Column(db.Integer)
     respondent = db.Column(db.Integer)
     questionnaire_id = db.Column(db.ForeignKey('info_questionnaire.id'))
+    process_type = db.Column(db.Integer)
+    title = db.Column(db.String(100))
+    time = db.Column(db.Time)
 
 
 class Question(db.Model, Base):
@@ -176,7 +182,7 @@ class Question(db.Model, Base):
     remark = db.Column(db.String(200))
 
     # options = db.relationship('Option', back_populates='question')
-    options = db.relationship('Option', backref=db.backref('info_question'))
+    options = db.relationship('Option', backref=db.backref('question'))
     questionnaire = db.relationship('Questionnaire', primaryjoin='Question.questionnaire_id == Questionnaire.id', backref=db.backref('info_questions'))
 
 
@@ -206,6 +212,8 @@ class Questionnaire(db.Model, Base):
     creator = db.Column(db.String(30))
     modifier = db.Column(db.String(30))
     code = db.Column(db.String(255))
+
+    struct = db.relationship('QuestionnaireStruct', backref=db.backref('questionnaires'))
 
 
 class Role(db.Model, Base):
