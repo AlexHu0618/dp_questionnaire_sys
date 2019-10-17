@@ -17,6 +17,7 @@ from .. import db
 from ..models.models import Questionnaire, Question, Option, QuestionnaireStruct
 import ast
 from app import STATE_CODE
+from sqlalchemy import and_
 
 
 class Argument(reqparse.Argument):
@@ -78,7 +79,7 @@ class Questionnaires(Resource):
         id_get = parser.parse_args().get('id')
         ## query single questionnaire
         if id_get is not None:
-            q = Questionnaire.query.filter_by(id=id_get).first()
+            q = Questionnaire.query.filter(and_(Questionnaire.id == id_get, Questionnaire.status < 2)).first()
             if q:
                 info = {'code': q.code, 'cycle': q.total_days, 'title': q.title, 'mintitle': q.sub_title,
                         'hospitalID': q.hospital_id, 'hospital': q.hospitals.name, 'subjectID': q.department_id,
@@ -134,13 +135,14 @@ class Questionnaires(Resource):
             if size is None:
                 size = size_default
             if hospital_id is None and department_id is None and medicine is None:
-                q = Questionnaire.query.paginate(page, size)
-                q_total = Questionnaire.query.count()
+                q = Questionnaire.query.filter(Questionnaire.status < 2).paginate(page, size)
+                q_total = Questionnaire.query.filter(Questionnaire.status < 2).count()
                 medicine_count = Questionnaire.query.with_entities(Questionnaire.medicine_id).distinct().count()
             else:
-                q = Questionnaire.query.filter_by(hospital_id=hospital_id if hospital_id is not None else '',
-                                                  department_id=department_id if department_id is not None else '',
-                                                  medicine=medicine if medicine is not None else '').paginate(page, size)
+                q = Questionnaire.query.filter(Questionnaire.hospital_id == hospital_id if hospital_id is not None else '',
+                                               Questionnaire.department_id == department_id if department_id is not None else '',
+                                               Questionnaire.medicine == medicine if medicine is not None else '',
+                                               Questionnaire.status < 2).paginate(page, size)
             if q:
                 print(q.items)
                 print(q.page)
@@ -169,10 +171,12 @@ class Questionnaires(Resource):
             dt_modified = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             creator = 'test'
             modifier = 'test'
+            table_result = 'subtab_result_shudaifu'
             q = Questionnaire(id=quuid, title=info['title'], sub_title=info['mintitle'], direction=info['remark'],
                               dt_created=dt_created, dt_modified=dt_modified, total_days=info['cycle'],
                               medicine_id=info['treatmentID'], code=info['code'], hospital_id=info['hospitalID'],
-                              department_id=info['subjectID'], creator=creator, modifier=modifier)
+                              department_id=info['subjectID'], creator=creator, modifier=modifier,
+                              result_table_name=table_result)
             rsl = q.save()
             ## save info successful
             if rsl:
@@ -199,7 +203,9 @@ class Questionnaires(Resource):
         if info is None:
             return STATE_CODE['400']
         ## update questionnaire
-        q = Questionnaire.query.filter_by(id=id_put).first()
+        q = Questionnaire.query.filter(Questionnaire.id == id_put, Questionnaire.status == 0).first()
+        if q is None:
+            return STATE_CODE['204']
         q.title = info['title']
         q.sub_title = info['mintitle']
         q.direction = info['remark']
@@ -256,6 +262,9 @@ class Questionnaires(Resource):
                         print('period', period)
                         time = m['time']
                         q_list = [i['id'] for i in qs]
+                        # ## update question in bulk
+                        # q_dict = [{'id': i, 'questionnaire_id': id_put} for i in q_list]
+                        # db.session.bulk_update_mappings(Question, q_dict)
                         q_list = list(map(str, q_list))
                         q_list_str = ','.join(q_list)
                         struct = QuestionnaireStruct(day_start=day_start, day_end=day_end, interval=interval, title=title,
@@ -297,16 +306,29 @@ class Questionnaires(Resource):
 
     def delete(self):
         id_del = parser.parse_args().get('id')
+        #################################
         ## delete others
         ## MapPatientQuestionnaire, .....
         ## delete others
+        #################################
         q = Questionnaire.query.filter_by(id=id_del).first()
+        # delete it and other involved data if the status is unrelease--0, else just change the status to forbidden--2
         if q:
-            rsl = q.delete()
-            if rsl:
+            if q.status == 0:
+                qn_struct = QuestionnaireStruct.query.filter_by(questionnaire_id=id_del).all()
+                rsl_struct = QuestionnaireStruct.delete_all(qn_struct)
+                if rsl_struct:
+                    rsl = q.delete()
+                    if rsl:
+                        return STATE_CODE['200']
+                    else:
+                        return STATE_CODE['204']
+            elif q.status == 1:
+                q.status = 2
+                db.session.commit()
                 return STATE_CODE['200']
             else:
-                return STATE_CODE['204']
+                return STATE_CODE['200']
         else:
             return STATE_CODE['203']
 

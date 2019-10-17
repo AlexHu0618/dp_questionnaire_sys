@@ -63,6 +63,17 @@ class Base:
             print(e)
             return None
 
+    @staticmethod
+    def delete_all(obj_list):
+        try:
+            [db.session.delete(i) for i in obj_list]
+            db.session.commit()
+            return 1
+        except Exception as e:
+            db.session.rollback()
+            print(e)
+            return None
+
 
 class Hospital(db.Model, Base):
     __tablename__ = 'info_hospital'
@@ -212,7 +223,7 @@ class Questionnaire(db.Model, Base):
     creator = db.Column(db.String(30))
     modifier = db.Column(db.String(30))
     code = db.Column(db.String(255))
-    is_release = db.Column(db.Integer)
+    status = db.Column(db.Integer)
 
     struct = db.relationship('QuestionnaireStruct', backref=db.backref('questionnaires'))
 
