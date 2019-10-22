@@ -83,7 +83,7 @@ class Questionnaires(Resource):
             if q:
                 info = {'code': q.code, 'cycle': q.total_days, 'title': q.title, 'mintitle': q.sub_title,
                         'hospitalID': q.hospital_id, 'hospital': q.hospitals.name, 'subjectID': q.department_id,
-                        'subject': q.departments.name, 'treatmentID': q.medicine_id, 'treatment': q.medicines.name, 'remark': q.direction,
+                        'subject': q.departments.name, 'treatmentID': q.medicine_id, 'treatment': q.medicine.name, 'remark': q.direction,
                         'createMan': q.creator, 'createTime': q.dt_created.strftime('%Y-%m-%d %H:%M:%S'),
                         'editMan': q.modifier, 'editTime': q.dt_modified.strftime('%Y-%m-%d %H:%M:%S')}
                 model_line = []
@@ -150,7 +150,7 @@ class Questionnaires(Resource):
                 q_list = []
                 for i in q.items:
                     q_s = {'id': i.id, 'title': i.title, 'mintitle': i.sub_title, 'code': i.code, 'treatmentID': i.medicine_id,
-                           'treatment': i.medicines.name, 'hospitalID': i.hospital_id, 'hospital': i.hospitals.name, 'subjectID': i.department_id,
+                           'treatment': i.medicine.name, 'hospitalID': i.hospital_id, 'hospital': i.hospitals.name, 'subjectID': i.department_id,
                            'subject': i.departments.name, 'creator': i.creator,
                            'time_creation': i.dt_created.strftime('%Y-%m-%d %H:%M:%S'), 'editor': i.modifier,
                            'time_edit': i.dt_modified.strftime('%Y-%m-%d %H:%M:%S')}

@@ -9,4 +9,4 @@
 
 from .models import Hospital, Department, Doctor, Patient, Medicine, Role
 from .models import Questionnaire, QuestionnaireStruct, Question, Option
-from .models import MapPatientQuestionnaire
+from .models import MapPatientQuestionnaire, ResultShudaifu

@@ -34,7 +34,7 @@ class Base:
         try:
             db.session.add(self)  # self实例化对象代表就是u对象
             db.session.commit()
-            return 1
+            return self.id
         except Exception as e:
             db.session.rollback()
             print(e)
@@ -118,7 +118,7 @@ class Option(db.Model, Base):
 
     id = db.Column(db.Integer, primary_key=True)
     question_id = db.Column(db.ForeignKey('info_question.id'))
-    content = db.Column(db.String(50), nullable=False)
+    content = db.Column(db.String(200), nullable=False)
     score = db.Column(db.Float(8, 2))
     total_votes = db.Column(db.Integer, server_default=db.FetchedValue())
     goto = db.Column(db.Integer)
@@ -165,6 +165,7 @@ class ResultShudaifu(db.Model, Base):
     __tablename__ = 'subtab_result_shudaifu'
 
     patient_id = db.Column(db.ForeignKey('info_patient.id'), primary_key=True)
+    question_id = db.Column(db.ForeignKey('info_question.id'), primary_key=True)
     option_id = db.Column(db.ForeignKey('info_option.id'), primary_key=True)
     dt_answer = db.Column(db.DateTime)
     is_doctor = db.Column(db.Integer)
@@ -207,7 +208,7 @@ class Medicine(db.Model, Base):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
 
-    questionnaires = db.relationship('Questionnaire', backref=db.backref('medicines'))
+    questionnaires = db.relationship('Questionnaire', backref=db.backref('medicine'))
 
 
 class Questionnaire(db.Model, Base):
@@ -260,6 +261,7 @@ class MapPatientQuestionnaire(db.Model, Base):
     current_period = db.Column(db.Integer)
     days_remained = db.Column(db.Integer)
     interval = db.Column(db.Integer)
+    is_need_send_task = db.Column(db.Integer, server_default=db.FetchedValue())
 
     doctor = db.relationship('Doctor', primaryjoin='MapPatientQuestionnaire.doctor_id == Doctor.id', backref=db.backref('map_patient_questionnaires'))
     patient = db.relationship('Patient', primaryjoin='MapPatientQuestionnaire.patient_id == Patient.id', backref=db.backref('map_patient_questionnaires'))

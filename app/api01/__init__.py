@@ -17,6 +17,7 @@ from . import login
 from .patient_manage import Patients
 from .questionnaire_manage import Questionnaires, Questions
 from .util import Util
+from .message_manage import Message, Task
 
 
 api = Api(api_bp)
@@ -25,3 +26,5 @@ api.add_resource(Questionnaires, '/questionnaire')
 api.add_resource(Questions, '/question')
 api.add_resource(Patients, '/patient')
 api.add_resource(Util, '/util')
+api.add_resource(Message, '/msg')
+api.add_resource(Task, '/task')
