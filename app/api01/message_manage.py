@@ -157,7 +157,6 @@ class Task(Resource):
                     q_id = q['questionID']
                     opt_list = q['optionsID']
                     text = q['text']
-                    print(opt_list)
                     if opt_list:
                         ## it is a choice question
                         for oid in opt_list:
@@ -175,13 +174,17 @@ class Task(Resource):
                             opt = Option(question_id=q_id, content=text)
                             rsl_id = opt.save()
                             if rsl_id:
-                                rsl_sdf = ResultShudaifu(patient_id=patient_id, option_id=rsl_id, dt_answer=dt_answer, is_doctor=1,
-                                                     question_id=q_id)
-                                db.session.add(rsl_sdf)
-                                # if rsl_sdf.save():
-                                #     continue
-                                # else:
-                                #     return STATE_CODE['203']
+                                rsl_oid = Option.query.filter_by(question_id=q_id, content=text).order_by(Option.id.desc()).first()
+                                if rsl_oid:
+                                    rsl_sdf = ResultShudaifu(patient_id=patient_id, option_id=rsl_oid.id, dt_answer=dt_answer, is_doctor=1,
+                                                         question_id=q_id)
+                                    db.session.add(rsl_sdf)
+                                    # if rsl_sdf.save():
+                                    #     continue
+                                    # else:
+                                    #     return STATE_CODE['203']
+                                else:
+                                    return STATE_CODE['203']
                             else:
                                 return STATE_CODE['203']
                         else:

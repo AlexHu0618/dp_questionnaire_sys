@@ -34,7 +34,7 @@ class Base:
         try:
             db.session.add(self)  # self实例化对象代表就是u对象
             db.session.commit()
-            return self.id
+            return 1
         except Exception as e:
             db.session.rollback()
             print(e)
