@@ -82,8 +82,8 @@ class Questionnaires(Resource):
             q = Questionnaire.query.filter(and_(Questionnaire.id == id_get, Questionnaire.status < 2)).first()
             if q:
                 info = {'code': q.code, 'cycle': q.total_days, 'title': q.title, 'mintitle': q.sub_title,
-                        'hospitalID': q.hospital_id, 'hospital': q.hospitals.name, 'subjectID': q.department_id,
-                        'subject': q.departments.name, 'treatmentID': q.medicine_id, 'treatment': q.medicine.name, 'remark': q.direction,
+                        'hospitalID': q.hospital_id, 'hospital': q.hospital.name, 'subjectID': q.department_id,
+                        'subject': q.department.name, 'treatmentID': q.medicine_id, 'treatment': q.medicine.name, 'remark': q.direction,
                         'createMan': q.creator, 'createTime': q.dt_created.strftime('%Y-%m-%d %H:%M:%S'),
                         'editMan': q.modifier, 'editTime': q.dt_modified.strftime('%Y-%m-%d %H:%M:%S')}
                 model_line = []
@@ -108,7 +108,7 @@ class Questionnaires(Resource):
                                     q = Question.query.filter_by(id=j).first()
                                     if q:
                                         q_dict = {'id': j, 'title': q.title, 'type': q.qtype,
-                                                  'options': [{'id': o.id, 'option': o.content, 'score': str(round(o.score, 2)),
+                                                  'options': [{'id': o.id, 'option': o.content, 'score': str(round(o.score, 2) if o.score else 0),
                                                                'goto': o.goto} for o in q.options]}
                                         questions.append(q_dict)
                             ms = {'start': i.day_start, 'end': i.day_end, 'time': i.time.strftime('%H:%M:%S'), 'interval': i.interval,
@@ -150,8 +150,8 @@ class Questionnaires(Resource):
                 q_list = []
                 for i in q.items:
                     q_s = {'id': i.id, 'title': i.title, 'mintitle': i.sub_title, 'code': i.code, 'treatmentID': i.medicine_id,
-                           'treatment': i.medicine.name, 'hospitalID': i.hospital_id, 'hospital': i.hospitals.name, 'subjectID': i.department_id,
-                           'subject': i.departments.name, 'creator': i.creator,
+                           'treatment': i.medicine.name, 'hospitalID': i.hospital_id, 'hospital': i.hospital.name, 'subjectID': i.department_id,
+                           'subject': i.department.name, 'creator': i.creator,
                            'time_creation': i.dt_created.strftime('%Y-%m-%d %H:%M:%S'), 'editor': i.modifier,
                            'time_edit': i.dt_modified.strftime('%Y-%m-%d %H:%M:%S')}
                     q_list.append(q_s)

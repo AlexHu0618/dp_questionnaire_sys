@@ -74,16 +74,11 @@ class Patients(Resource):
                     sql = sql.filter(MapPatientQuestionnaire.questionnaire_id.in_(qn_id))
             rsl = sql.paginate(page=page if page else 1, per_page=size if size else 10)
             if rsl:
-                items = [{'name': i.patient.name, 'hospital': i.questionnaire.hospital_id, 'subject': i.questionnaire.department_id,
-                         'treatment': i.questionnaire.medicine_id, 'sex': i.patient.sex, 'url': i.patient.url_portrait,
+                items = [{'name': i.patient.name, 'hospital': i.questionnaire.hospital.name, 'subject': i.questionnaire.department.name,
+                         'treatment': i.questionnaire.medicine.name, 'sex': i.patient.sex, 'url': i.patient.url_portrait,
                          'start': i.dt_built.strftime('%Y-%m-%d'), 'status': i.status} for i in rsl.items]
                 resp = {'total': rsl.total, 'page': rsl.pages, 'items': items}
                 print(resp)
                 return jsonify(dict(resp, **STATE_CODE['200']))
             else:
                 return STATE_CODE['204']
-
-
-class InfoCheck(Resource):
-    def get(self):
-        pass

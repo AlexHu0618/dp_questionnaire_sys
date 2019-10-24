@@ -82,7 +82,7 @@ class Hospital(db.Model, Base):
     name = db.Column(db.String(255))
 
     departments = db.relationship('Department', backref='hospital')
-    questionnaires = db.relationship('Questionnaire', backref=db.backref('hospitals'))
+    questionnaires = db.relationship('Questionnaire', backref=db.backref('hospital'))
 
 
 class Department(db.Model, Base):
@@ -92,7 +92,7 @@ class Department(db.Model, Base):
     name = db.Column(db.String(255))
     hospital_id = db.Column(db.ForeignKey('info_hospital.id'))
 
-    questionnaires = db.relationship('Questionnaire', backref=db.backref('departments'))
+    questionnaires = db.relationship('Questionnaire', backref=db.backref('department'))
 
 
 class Doctor(db.Model, UserMixin, Base):
