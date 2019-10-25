@@ -196,6 +196,7 @@ class Questionnaires(Resource):
         model_line = args['model_line']
         model = args['model']
         print(info)
+        print(model_line)
         # id_put = parser.parse_args().get('id')
         # info = ast.literal_eval(parser.parse_args().get('info'))
         # model_line = parser.parse_args().get('model_line')
@@ -203,7 +204,7 @@ class Questionnaires(Resource):
         if info is None:
             return STATE_CODE['400']
         ## update questionnaire
-        q = Questionnaire.query.filter(Questionnaire.id == id_put, Questionnaire.status == 0).first()
+        q = Questionnaire.query.filter(Questionnaire.id == id_put, Questionnaire.status == 0).one()
         if q is None:
             return STATE_CODE['204']
         q.title = info['title']
@@ -216,9 +217,7 @@ class Questionnaires(Resource):
         q.department_id = info['subjectID']
         q.modifier = 'mod_tester'
         q.code = info['code']
-        t0 = datetime.datetime.now()
         rsl = db.session.commit()
-        print("create ", datetime.datetime.now() - t0)
         if not rsl:
             ## update all model
             if model_line or model:
@@ -229,10 +228,8 @@ class Questionnaires(Resource):
                     param.append('model')
                 ## delete all the struct about this questionnaire_id
                 if q.struct:
-                    t1 = datetime.datetime.now()
                     [db.session.delete(s) for s in q.struct]
                     rsl = db.session.commit()
-                    print("delete structs ", datetime.datetime.now() - t1)
                     if rsl:
                         ## fail to delete all structs
                         db.session.rollback()
@@ -257,40 +254,36 @@ class Questionnaires(Resource):
                         interval = m['interval']
                         title = m['title']
                         print('day_start', day_start)
-                        print('index', startdays_sorted.index(day_start))
                         period = startdays_sorted.index(day_start) + 1
                         print('period', period)
                         time = m['time']
                         q_list = [i['id'] for i in qs]
-                        # ## update question in bulk
-                        # q_dict = [{'id': i, 'questionnaire_id': id_put} for i in q_list]
-                        # db.session.bulk_update_mappings(Question, q_dict)
                         q_list = list(map(str, q_list))
                         q_list_str = ','.join(q_list)
                         struct = QuestionnaireStruct(day_start=day_start, day_end=day_end, interval=interval, title=title,
                                                      time=time, questionnaire_id=id_put, question_id_list=q_list_str,
                                                      process_type=process_type, respondent=respondent, period=period)
-                        t2 = datetime.datetime.now()
                         rsl = QuestionnaireStruct.save(struct)
-                        print("build one struct ", datetime.datetime.now() - t2)
                         if not rsl:
                             return STATE_CODE['203']
                         else:
                             ## update process model
-                            t3 = datetime.datetime.now()
                             for os_dict in qs:
                                 os_list = os_dict['options']
                                 if os_list is not None:
                                     ## it is not the gap filling
                                     for o in os_list:
-                                        option = Option.query.filter_by(id=o['id']).first()
-                                        option.score = o['score']
+                                        option = Option.query.filter_by(id=o['id']).one()
+                                        print(option)
+                                        option.score = float(o['score']) if o['score'] else 0
                                         if 'goto' in o.keys():
                                             if isinstance(o['goto'], int):
                                                 option.goto = o['goto']
-                                        rsl = db.session.commit()
-                                        if rsl:
+                                        try:
+                                            db.session.commit()
+                                        except Exception as e:
                                             ## fail to update data
+                                            print(e)
                                             db.session.rollback()
                                             return STATE_CODE['203']
                                 elif os_dict['type'] == 3:
@@ -298,7 +291,6 @@ class Questionnaires(Resource):
                                 else:
                                     db.session.rollback()
                                     return STATE_CODE['203']
-                            print("build option ", datetime.datetime.now() - t3)
             return STATE_CODE['200']
         else:
             db.session.rollback()
