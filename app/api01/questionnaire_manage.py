@@ -13,8 +13,9 @@ from flask import jsonify
 import re
 import uuid
 import datetime
+import time
 from .. import db
-from ..models.models import Questionnaire, Question, Option, QuestionnaireStruct
+from ..models import Questionnaire, QuestionTemp, Question, Option, QuestionnaireStruct
 import ast
 from app import STATE_CODE
 from sqlalchemy import and_
@@ -111,7 +112,7 @@ class Questionnaires(Resource):
                                                   'options': [{'id': o.id, 'option': o.content, 'score': str(round(o.score, 2) if o.score else 0),
                                                                'goto': o.goto} for o in q.options]}
                                         questions.append(q_dict)
-                            ms = {'start': i.day_start, 'end': i.day_end, 'time': i.time.strftime('%H:%M:%S'), 'interval': i.interval,
+                            ms = {'start': i.day_start, 'end': i.day_end, 'time': i.time.strftime('%H:%M:%S') if i.time else '', 'interval': i.interval,
                                   'title': i.title, 'questions': questions, 'active': False, 'scoreSwitch': False,
                                   'id': i.id, 'for': respondent}
                             temp.append(ms)
@@ -196,11 +197,7 @@ class Questionnaires(Resource):
         model_line = args['model_line']
         model = args['model']
         print(info)
-        print(model_line)
-        # id_put = parser.parse_args().get('id')
-        # info = ast.literal_eval(parser.parse_args().get('info'))
-        # model_line = parser.parse_args().get('model_line')
-        # model = parser.parse_args().get('model')
+        print(model)
         if info is None:
             return STATE_CODE['400']
         ## update questionnaire
@@ -228,6 +225,8 @@ class Questionnaires(Resource):
                     param.append('model')
                 ## delete all the struct about this questionnaire_id
                 if q.struct:
+                    [db.session.delete(o) for o in q.questions.options]
+                    [db.session.delete(q) for q in q.questions]
                     [db.session.delete(s) for s in q.struct]
                     rsl = db.session.commit()
                     if rsl:
@@ -244,57 +243,120 @@ class Questionnaires(Resource):
                     ## sort the period
                     startdays_sorted = sorted([i['start'] for i in model_list])
                     print('period []', startdays_sorted)
+                    m_list = []
                     for m in model_list:
-                        if p == 'model':
-                            respondent = m['for']
-                            process_type = 1
+                        qid_list = []
                         qs = m['questions']
                         day_start = m['start']
                         day_end = m['end']
                         interval = m['interval']
                         title = m['title']
-                        print('day_start', day_start)
                         period = startdays_sorted.index(day_start) + 1
-                        print('period', period)
                         time = m['time']
-                        q_list = [i['id'] for i in qs]
-                        q_list = list(map(str, q_list))
-                        q_list_str = ','.join(q_list)
-                        struct = QuestionnaireStruct(day_start=day_start, day_end=day_end, interval=interval, title=title,
-                                                     time=time, questionnaire_id=id_put, question_id_list=q_list_str,
-                                                     process_type=process_type, respondent=respondent, period=period)
-                        rsl = QuestionnaireStruct.save(struct)
-                        if not rsl:
-                            return STATE_CODE['203']
-                        else:
-                            ## update process model
-                            for os_dict in qs:
-                                os_list = os_dict['options']
-                                if os_list is not None:
-                                    ## it is not the gap filling
-                                    for o in os_list:
-                                        option = Option.query.filter_by(id=o['id']).one()
-                                        print(option)
-                                        option.score = float(o['score']) if o['score'] else 0
-                                        if 'goto' in o.keys():
-                                            if isinstance(o['goto'], int):
-                                                option.goto = o['goto']
-                                        try:
-                                            db.session.commit()
-                                        except Exception as e:
-                                            ## fail to update data
-                                            print(e)
-                                            db.session.rollback()
-                                            return STATE_CODE['203']
-                                elif os_dict['type'] == 3:
-                                    pass
+                        if p == 'model':
+                            respondent = m['for']
+                            process_type = 1
+                            period = None
+                            time = None
+                        ## build question and option
+                        q_max_id = Question.query.order_by(Question.id.desc()).first()
+                        max_id = q_max_id.id
+                        q_list = []
+                        opts_list = []
+                        for q in qs:
+                            q_temp = QuestionTemp.query.filter_by(id=q['id']).one()
+                            if q_temp:
+                                q = Question(id=max_id + 1, title=q_temp.title, need_answer=q_temp.need_answer,
+                                             questionnaire_id=q.id, qtype=q_temp.qtype, remark=q_temp.remark)
+                                q_list.append(q)
+                                ## save options for one question
+                                if q_temp.options:
+                                    options_str = re.split(r'[**]', q_temp.options)
+                                    options_list = list(options_str)
+                                    opt_list = []
+                                    for i in len(options_list):
+                                        score = float(q['options'][i]['score'] if q['options'][i]['score'] else 0)
+                                        goto = q['options'][i]['goto'] if q['options'][i]['goto'] else 0
+                                        opt = Option(question_id=max_id, content=options_list[i], score=score, goto=goto)
+                                        opt_list.append(opt)
+                                    opts_list += opt_list
                                 else:
-                                    db.session.rollback()
-                                    return STATE_CODE['203']
-            return STATE_CODE['200']
+                                    goto = q.options[0]['goto'] if q.options[0]['goto'] else 0
+                                    opt = Option(question_id=max_id, content='', score=0, goto=goto)
+                                    opts_list.append(opt)
+                                qid_list.append(max_id)
+                                max_id = max_id + 1
+                                continue
+                            else:
+                                return STATE_CODE['203']
+                        rsl = Option.save_all(opts_list)
+                        if rsl:
+                            rsl_q = Question.save_all(q_list)
+                            if rsl_q:
+                                ## save module
+                                qid_list_str = list(map(str, qid_list))
+                                qids_list = ','.join(qid_list_str)
+                                struct = QuestionnaireStruct(day_start=day_start, day_end=day_end, interval=interval,
+                                                             title=title, time=time, questionnaire_id=id_put,
+                                                             question_id_list=qids_list, process_type=process_type,
+                                                             respondent=respondent, period=period)
+                                m_list.append(struct)
+                                continue
+                            else:
+                                return STATE_CODE['203']
+                        else:
+                            return STATE_CODE['203']
+                    rsl = QuestionnaireStruct.save_all(m_list)
+                    if rsl:
+                        continue
+                    else:
+                        return STATE_CODE['203']
+                return STATE_CODE['200']
         else:
-            db.session.rollback()
             return STATE_CODE['203']
+
+
+        #                 q_list = [i['id'] for i in qs]
+        #                 q_list = list(map(str, q_list))
+        #                 q_list_str = ','.join(q_list)
+        #                 struct = QuestionnaireStruct(day_start=day_start, day_end=day_end, interval=interval, title=title,
+        #                                              time=time, questionnaire_id=id_put, question_id_list=q_list_str,
+        #                                              process_type=process_type, respondent=respondent, period=period)
+        #                 rsl = QuestionnaireStruct.save(struct)
+        #                 if not rsl:
+        #                     return STATE_CODE['203']
+        #                 else:
+        #                     ## update process model
+        #                     for os_dict in qs:
+        #                         os_list = os_dict['options']
+        #                         if os_list is not None:
+        #                             ## it is not the gap filling
+        #                             for o in os_list:
+        #                                 option = Option.query.filter_by(id=o['id']).one()
+        #                                 if option:
+        #                                     option.score = float(o['score'] if o['score'] else 0)
+        #                                     print(option.id, option.score, type(option.score))
+        #                                     if 'goto' in o.keys():
+        #                                         if isinstance(o['goto'], int):
+        #                                             option.goto = o['goto']
+        #                                     try:
+        #                                         db.session.commit()
+        #                                     except Exception as e:
+        #                                         ## fail to update data
+        #                                         print(e)
+        #                                         db.session.rollback()
+        #                                         return STATE_CODE['203']
+        #                                 else:
+        #                                     return STATE_CODE['203']
+        #                         elif os_dict['type'] == 3:
+        #                             pass
+        #                         else:
+        #                             db.session.rollback()
+        #                             return STATE_CODE['203']
+        #     return STATE_CODE['200']
+        # else:
+        #     db.session.rollback()
+        #     return STATE_CODE['203']
 
     def delete(self):
         id_del = parser.parse_args().get('id')
@@ -303,7 +365,7 @@ class Questionnaires(Resource):
         ## MapPatientQuestionnaire, .....
         ## delete others
         #################################
-        q = Questionnaire.query.filter_by(id=id_del).first()
+        q = Questionnaire.query.filter_by(id=id_del).one()
         # delete it and other involved data if the status is unrelease--0, else just change the status to forbidden--2
         if q:
             if q.status == 0:
@@ -325,24 +387,29 @@ class Questionnaires(Resource):
             return STATE_CODE['203']
 
 
-class Questions(Resource):
+class QuestionTemps(Resource):
     """
-    Restful API for Question
+    Restful API for Question template
     """
     def get(self):
         id_get = parser.parse_args().get('id')
         ## query single question
         if id_get is not None:
-            q = Question.query.filter_by(id=id_get).first()
+            q = QuestionTemp.query.filter_by(id=id_get).one()
             if q:
-                options = [{'id': i.id, 'content': i.content} for i in q.options]
+                if q.options:
+                    options_str = re.split(r'[**]', q.options)
+                    options_list = list(options_str)
+                else:
+                    options_list = []
+                options = [{'id': q.id, 'content': o} for o in options_list]
                 resp = {'id': q.id, 'title': q.title, 'type': q.qtype, 'options': options, 'remark': q.remark}
                 return jsonify(dict(resp, **STATE_CODE['200']))
             else:
                 return STATE_CODE['204']
         ## query all questions
         else:
-            qs = Question.query.all()
+            qs = QuestionTemp.query.all()
             print(qs)
             if qs is not None:
                 resp = {'item': [{'id': q.id, 'title': q.title, 'type': q.qtype} for q in qs]}
@@ -354,18 +421,18 @@ class Questions(Resource):
         print(request.form)
         print(request.args)
         print(request.get_json())
-        # title = parser.parse_args().get('title')
-        # type = parser.parse_args().get('type')
-        # options = ast.literal_eval(parser.parse_args().get('options'))
-        # remark = parser.parse_args().get('remark')
         args = request.get_json()
         title = args['title']
         type = args['type']
         options = args['options']
         remark = args['remark']
-        q = Question(title=title, qtype=type, remark=remark)
+        q = QuestionTemp(title=title, qtype=type, remark=remark)
         if options is not None:
-            q.options = [Option(content=i['content']) for i in options]
+            options_list = [i['content'] for i in options]
+            opts_list = list(map(str, options_list))
+            opts_list_str = '**'.join(opts_list)
+            q.options = opts_list_str
+            # q.options = [Option(content=i['content']) for i in options]
         else:
             return STATE_CODE['400']
         rsl = q.save()
@@ -381,56 +448,64 @@ class Questions(Resource):
         type_put = args['type']
         options_put = args['options']
         remark_put = args['remark']
-        # id_put = parser.parse_args().get('id')
-        # title_put = parser.parse_args().get('title')
-        # type_put = parser.parse_args().get('type')
-        # options_put = parser.parse_args().get('options')
-        # remark_put = parser.parse_args().get('remark')
-        if options_put is not None and not isinstance(options_put, list):
-            options_put = ast.literal_eval(options_put)
-        q = Question.query.filter_by(id=id_put).first()
-        q.title = title_put
-        q.qtype = type_put
-        q.remark = remark_put
-        rsl = db.session.commit()
-        if not rsl:
-            ## delete all the options about question_id
-            os = Option.query.filter_by(question_id=id_put).all()
-            if os is not None:
-                [db.session.delete(o) for o in os]
-                rsl = db.session.commit()
-                if rsl:
-                    ## fail to delete all options
-                    db.session.rollback()
-                    return STATE_CODE['203']
+        q = QuestionTemp.query.filter_by(id=id_put).one()
+        if q:
+            q.title = title_put
+            q.qtype = type_put
+            q.remark = remark_put
             ## the current question is not a gap filling
             if type_put != 3 and options_put is not None:
-                o = [Option(question_id=id_put, content=i['content']) for i in options_put]
-                rsl = Option.save_all(o)
-                if rsl:
-                    return STATE_CODE['200']
-                else:
-                    return STATE_CODE['204']
-            elif type_put == 3:
-                return STATE_CODE['200']
+                options_list = [i['content'] for i in options_put]
+                opts_list = list(map(str, options_list))
+                opts_list_str = '**'.join(opts_list)
+                q.options = opts_list_str
             else:
-                return STATE_CODE['203']
-        else:
-            return STATE_CODE['203']
-
-    def delete(self):
-        print(request.form)
-        print(request.args)
-        id_del = int(parser.parse_args().get('id'))
-        options = Option.query.filter_by(question_id=id_del).all()
-        q = Question.query.filter_by(id=id_del).first()
-        if q:
-            [db.session.delete(o) for o in options]
-            db.session.delete(q)
+                q.options = ''
             rsl = db.session.commit()
             if not rsl:
                 return STATE_CODE['200']
             else:
                 return STATE_CODE['204']
+        else:
+            return STATE_CODE['203']
+        # if options_put is not None and not isinstance(options_put, list):
+        #     options_put = ast.literal_eval(options_put)
+        # q = QuestionTemp.query.filter_by(id=id_put).first()
+        # q.title = title_put
+        # q.qtype = type_put
+        # q.remark = remark_put
+        # rsl = db.session.commit()
+        # if not rsl:
+        #     ## delete all the options about question_id
+        #     os = Option.query.filter_by(question_id=id_put).all()
+        #     if os is not None:
+        #         [db.session.delete(o) for o in os]
+        #         rsl = db.session.commit()
+        #         if rsl:
+        #             ## fail to delete all options
+        #             db.session.rollback()
+        #             return STATE_CODE['203']
+        #     ## the current question is not a gap filling
+        #     if type_put != 3 and options_put is not None:
+        #         o = [Option(question_id=id_put, content=i['content']) for i in options_put]
+        #         rsl = Option.save_all(o)
+        #         if rsl:
+        #             return STATE_CODE['200']
+        #         else:
+        #             return STATE_CODE['204']
+        #     elif type_put == 3:
+        #         return STATE_CODE['200']
+        #     else:
+        #         return STATE_CODE['203']
+        # else:
+        #     return STATE_CODE['203']
+
+    def delete(self):
+        print(request.form)
+        print(request.args)
+        id_del = int(parser.parse_args().get('id'))
+        q = QuestionTemp.query.filter_by(id=id_del).delete()
+        if q:
+            return STATE_CODE['200']
         else:
             return STATE_CODE['203']

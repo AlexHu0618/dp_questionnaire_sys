@@ -132,7 +132,9 @@ class Patient(db.Model, Base):
     __tablename__ = 'info_patient'
 
     id = db.Column(db.Integer, primary_key=True)
-    wechat_openid = db.Column(db.String(30))
+    gzh_openid = db.Column(db.String(50))
+    minip_openid = db.Column(db.String(50))
+    unionid = db.Column(db.String(50))
     url_portrait = db.Column(db.String(255))
     name = db.Column(db.String(20), server_default=db.FetchedValue())
     sex = db.Column(db.Integer)
@@ -187,6 +189,20 @@ class QuestionnaireStruct(db.Model, Base):
     time = db.Column(db.Time)
 
 
+class QuestionTemp(db.Model, Base):
+    __tablename__ = 'info_question_template'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200))
+    need_answer = db.Column(db.SmallInteger)
+    questionnaire_id = db.Column(db.ForeignKey('info_questionnaire.id'), nullable=False, index=True)
+    qtype = db.Column(db.Integer)
+    remark = db.Column(db.String(200))
+    options = db.Column(db.String(255))
+
+    questionnaires = db.relationship('Questionnaire', primaryjoin='QuestionTemp.questionnaire_id == Questionnaire.id', backref=db.backref('question_template'))
+
+
 class Question(db.Model, Base):
     __tablename__ = 'info_question'
 
@@ -199,7 +215,7 @@ class Question(db.Model, Base):
 
     # options = db.relationship('Option', back_populates='question')
     options = db.relationship('Option', backref=db.backref('question'))
-    questionnaire = db.relationship('Questionnaire', primaryjoin='Question.questionnaire_id == Questionnaire.id', backref=db.backref('info_questions'))
+    questionnaire = db.relationship('Questionnaire', backref=db.backref('questions'))
 
 
 class Medicine(db.Model, Base):
