@@ -63,17 +63,29 @@ class Base:
             print(e)
             return None
 
+    @staticmethod
+    def delete_all(obj_list):
+        try:
+            [db.session.delete(i) for i in obj_list]
+            db.session.commit()
+            return 1
+        except Exception as e:
+            db.session.rollback()
+            print(e)
+            return None
 
-class Hospital(db.Model, UserMixin, Base):
+
+class Hospital(db.Model, Base):
     __tablename__ = 'info_hospital'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255))
 
+    departments = db.relationship('Department', backref='hospital')
     questionnaires = db.relationship('Questionnaire', backref=db.backref('hospitals'))
 
 
-class Department(db.Model, UserMixin, Base):
+class Department(db.Model, Base):
     __tablename__ = 'info_department'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -88,16 +100,17 @@ class Doctor(db.Model, UserMixin, Base):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(30), server_default=db.FetchedValue())
-    department_id = db.Column(db.Integer)
+    department_id = db.Column(db.Integer, db.ForeignKey('info_department.id'))
     hospital_id = db.Column(db.Integer)
-    medicine = db.Column(db.String(50), server_default=db.FetchedValue())
+    medicine_id = db.Column(db.Integer)
     role_id = db.Column(db.ForeignKey('info_role.id'), index=True)
     nickname = db.Column(db.String(20))
     password = db.Column(db.String(128))
 
+    department = db.relationship('Department', backref=db.backref('doctors'))
     role = db.relationship('Role', primaryjoin='Doctor.role_id == Role.id', backref=db.backref('info_doctors'))
-    patients = db.relationship('Patient', secondary=t_map_doctor_patient, backref=db.backref('info_doctors'))
-    questionnaires = db.relationship('Questionnaire', secondary=t_map_doctor_questionnaire, backref=db.backref('info_doctors'))
+    # patients = db.relationship('Patient', secondary=t_map_doctor_patient, backref=db.backref('doctors'))
+    # questionnaires = db.relationship('Questionnaire', secondary=t_map_doctor_questionnaire, backref=db.backref('doctors'))
 
 
 class Option(db.Model, Base):
@@ -105,7 +118,7 @@ class Option(db.Model, Base):
 
     id = db.Column(db.Integer, primary_key=True)
     question_id = db.Column(db.ForeignKey('info_question.id'))
-    content = db.Column(db.String(50), nullable=False)
+    content = db.Column(db.String(200), nullable=False)
     score = db.Column(db.Float(8, 2))
     total_votes = db.Column(db.Integer, server_default=db.FetchedValue())
     goto = db.Column(db.Integer)
@@ -119,20 +132,20 @@ class Patient(db.Model, Base):
     __tablename__ = 'info_patient'
 
     id = db.Column(db.Integer, primary_key=True)
+    wechat_openid = db.Column(db.String(30))
+    url_portrait = db.Column(db.String(255))
     name = db.Column(db.String(20), server_default=db.FetchedValue())
     sex = db.Column(db.Integer)
-    age = db.Column(db.Integer)
+    birthday = db.Column(db.Date)
     nation = db.Column(db.String(5), server_default=db.FetchedValue())
-    weight = db.Column(db.Float(8, 2))
-    height = db.Column(db.Integer)
-    year_smoking = db.Column(db.Integer)
-    year_drink = db.Column(db.Integer)
-    tel = db.Column(db.String(20), server_default=db.FetchedValue())
-    dt_register = db.Column(db.DateTime)
-    dt_login = db.Column(db.DateTime)
-    wechat_openid = db.Column(db.String(30))
+    email = db.Column(db.String(100))
     dt_subscribe = db.Column(db.DateTime)
     dt_unsubscribe = db.Column(db.DateTime)
+    dt_register = db.Column(db.DateTime)
+    dt_login = db.Column(db.DateTime)
+    tel = db.Column(db.String(20), server_default=db.FetchedValue())
+
+    doctors = db.relationship('Doctor', secondary=t_map_doctor_patient, backref='patients')
 
 
 # class ResultShudaifu(db.Model, Base):
@@ -152,7 +165,10 @@ class ResultShudaifu(db.Model, Base):
     __tablename__ = 'subtab_result_shudaifu'
 
     patient_id = db.Column(db.ForeignKey('info_patient.id'), primary_key=True)
+    question_id = db.Column(db.ForeignKey('info_question.id'), primary_key=True)
     option_id = db.Column(db.ForeignKey('info_option.id'), primary_key=True)
+    dt_answer = db.Column(db.DateTime)
+    is_doctor = db.Column(db.Integer)
 
 
 class QuestionnaireStruct(db.Model, Base):
@@ -192,7 +208,7 @@ class Medicine(db.Model, Base):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
 
-    questionnaires = db.relationship('Questionnaire', backref=db.backref('medicines'))
+    questionnaires = db.relationship('Questionnaire', backref=db.backref('medicine'))
 
 
 class Questionnaire(db.Model, Base):
@@ -212,8 +228,10 @@ class Questionnaire(db.Model, Base):
     creator = db.Column(db.String(30))
     modifier = db.Column(db.String(30))
     code = db.Column(db.String(255))
+    status = db.Column(db.Integer)
 
     struct = db.relationship('QuestionnaireStruct', backref=db.backref('questionnaires'))
+    doctors = db.relationship('Doctor', secondary=t_map_doctor_questionnaire, backref='questionnaires')
 
 
 class Role(db.Model, Base):
@@ -229,12 +247,21 @@ class MapPatientQuestionnaire(db.Model, Base):
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.ForeignKey('info_patient.id'), nullable=False, index=True)
     questionnaire_id = db.Column(db.ForeignKey('info_questionnaire.id'), nullable=False, index=True)
+    weight = db.Column(db.Float(8, 2))
+    height = db.Column(db.Integer)
+    is_smoking = db.Column(db.Integer)
+    is_drink = db.Column(db.Integer)
+    is_operated = db.Column(db.Integer)
     total_days = db.Column(db.Integer, server_default=db.FetchedValue())
     score = db.Column(db.Float(8, 2), server_default=db.FetchedValue())
     doctor_id = db.Column(db.ForeignKey('info_doctor.id'), nullable=False, index=True)
-    register_state = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.Integer, nullable=False)
     dt_built = db.Column(db.DateTime)
     dt_lasttime = db.Column(db.DateTime)
+    current_period = db.Column(db.Integer)
+    days_remained = db.Column(db.Integer)
+    interval = db.Column(db.Integer)
+    is_need_send_task = db.Column(db.Integer, server_default=db.FetchedValue())
 
     doctor = db.relationship('Doctor', primaryjoin='MapPatientQuestionnaire.doctor_id == Doctor.id', backref=db.backref('map_patient_questionnaires'))
     patient = db.relationship('Patient', primaryjoin='MapPatientQuestionnaire.patient_id == Patient.id', backref=db.backref('map_patient_questionnaires'))

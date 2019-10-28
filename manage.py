@@ -14,6 +14,7 @@ import os
 from app import create_app
 from flask_script import Manager
 from myLogger import mylogger
+import threading
 
 
 app = create_app(os.getenv('FLASK_CONFIG') or 'default')  # can set environment variable 'FLASK_CONFIG', \
