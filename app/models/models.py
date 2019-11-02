@@ -119,7 +119,7 @@ class Option(db.Model, Base):
     id = db.Column(db.Integer, primary_key=True)
     question_id = db.Column(db.ForeignKey('info_question.id'))
     content = db.Column(db.String(200), nullable=False)
-    score = db.Column(db.Float(8, 2))
+    score = db.Column(db.Float(8, 3))
     total_votes = db.Column(db.Integer, server_default=db.FetchedValue())
     goto = db.Column(db.Integer)
 
@@ -134,11 +134,13 @@ class Patient(db.Model, Base):
     id = db.Column(db.Integer, primary_key=True)
     gzh_openid = db.Column(db.String(50))
     minip_openid = db.Column(db.String(50))
-    unionid = db.Column(db.String(50))
+    unionid = db.Column(db.String(50), nullable=False, unique=True)
     url_portrait = db.Column(db.String(255))
     name = db.Column(db.String(20), server_default=db.FetchedValue())
     sex = db.Column(db.Integer)
     birthday = db.Column(db.Date)
+    weight = db.Column(db.Integer)
+    height = db.Column(db.Integer)
     nation = db.Column(db.String(5), server_default=db.FetchedValue())
     email = db.Column(db.String(100))
     dt_subscribe = db.Column(db.DateTime)
@@ -166,11 +168,14 @@ class Patient(db.Model, Base):
 class ResultShudaifu(db.Model, Base):
     __tablename__ = 'subtab_result_shudaifu'
 
-    patient_id = db.Column(db.ForeignKey('info_patient.id'), primary_key=True)
-    question_id = db.Column(db.ForeignKey('info_question.id'), primary_key=True)
-    option_id = db.Column(db.ForeignKey('info_option.id'), primary_key=True)
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.ForeignKey('info_patient.id'))
+    question_id = db.Column(db.ForeignKey('info_question.id'))
     dt_answer = db.Column(db.DateTime)
     is_doctor = db.Column(db.Integer)
+    answer = db.Column(db.String(255))
+    type = db.Column(db.Integer)
+    score = db.Column(db.Float(8, 3))
 
 
 class QuestionnaireStruct(db.Model, Base):
@@ -212,6 +217,7 @@ class Question(db.Model, Base):
     questionnaire_id = db.Column(db.ForeignKey('info_questionnaire.id'), nullable=False, index=True)
     qtype = db.Column(db.Integer)
     remark = db.Column(db.String(200))
+    template_id = db.Column(db.Integer)
 
     # options = db.relationship('Option', back_populates='question')
     options = db.relationship('Option', backref=db.backref('question'))
@@ -261,15 +267,15 @@ class MapPatientQuestionnaire(db.Model, Base):
     __tablename__ = 'map_patient_questionnaire'
 
     id = db.Column(db.Integer, primary_key=True)
-    patient_id = db.Column(db.ForeignKey('info_patient.id'), nullable=False, index=True)
+    patient_id = db.Column(db.ForeignKey('info_patient.id'), unique=True, nullable=False, index=True)
     questionnaire_id = db.Column(db.ForeignKey('info_questionnaire.id'), nullable=False, index=True)
-    weight = db.Column(db.Float(8, 2))
+    weight = db.Column(db.Integer)
     height = db.Column(db.Integer)
     is_smoking = db.Column(db.Integer)
     is_drink = db.Column(db.Integer)
     is_operated = db.Column(db.Integer)
     total_days = db.Column(db.Integer, server_default=db.FetchedValue())
-    score = db.Column(db.Float(8, 2), server_default=db.FetchedValue())
+    score = db.Column(db.Float(8, 3), server_default=db.FetchedValue())
     doctor_id = db.Column(db.ForeignKey('info_doctor.id'), nullable=False, index=True)
     status = db.Column(db.Integer, nullable=False)
     dt_built = db.Column(db.DateTime)
@@ -277,7 +283,8 @@ class MapPatientQuestionnaire(db.Model, Base):
     current_period = db.Column(db.Integer)
     days_remained = db.Column(db.Integer)
     interval = db.Column(db.Integer)
-    is_need_send_task = db.Column(db.Integer, server_default=db.FetchedValue())
+    need_send_task_module = db.Column(db.String(100), server_default=db.FetchedValue())
+    need_answer_module = db.Column(db.String(100), server_default=db.FetchedValue())
 
     doctor = db.relationship('Doctor', primaryjoin='MapPatientQuestionnaire.doctor_id == Doctor.id', backref=db.backref('map_patient_questionnaires'))
     patient = db.relationship('Patient', primaryjoin='MapPatientQuestionnaire.patient_id == Patient.id', backref=db.backref('map_patient_questionnaires'))

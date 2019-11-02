@@ -80,13 +80,13 @@ class Questionnaires(Resource):
         id_get = parser.parse_args().get('id')
         ## query single questionnaire
         if id_get is not None:
-            q = Questionnaire.query.filter(and_(Questionnaire.id == id_get, Questionnaire.status < 2)).first()
-            if q:
-                info = {'code': q.code, 'cycle': q.total_days, 'title': q.title, 'mintitle': q.sub_title,
-                        'hospitalID': q.hospital_id, 'hospital': q.hospital.name, 'subjectID': q.department_id,
-                        'subject': q.department.name, 'treatmentID': q.medicine_id, 'treatment': q.medicine.name, 'remark': q.direction,
-                        'createMan': q.creator, 'createTime': q.dt_created.strftime('%Y-%m-%d %H:%M:%S'),
-                        'editMan': q.modifier, 'editTime': q.dt_modified.strftime('%Y-%m-%d %H:%M:%S')}
+            qn = Questionnaire.query.filter(and_(Questionnaire.id == id_get, Questionnaire.status < 2)).first()
+            if qn:
+                info = {'code': qn.code, 'cycle': qn.total_days, 'title': qn.title, 'mintitle': qn.sub_title,
+                        'hospitalID': qn.hospital_id, 'hospital': qn.hospital.name, 'subjectID': qn.department_id,
+                        'subject': qn.department.name, 'treatmentID': qn.medicine_id, 'treatment': qn.medicine.name, 'remark': qn.direction,
+                        'createMan': qn.creator, 'createTime': qn.dt_created.strftime('%Y-%m-%d %H:%M:%S'),
+                        'editMan': qn.modifier, 'editTime': qn.dt_modified.strftime('%Y-%m-%d %H:%M:%S')}
                 model_line = []
                 model = []
                 temp = model_line
@@ -108,7 +108,8 @@ class Questionnaires(Resource):
                                 for j in qs_id:
                                     q = Question.query.filter_by(id=j).first()
                                     if q:
-                                        q_dict = {'id': j, 'title': q.title, 'type': q.qtype,
+                                        ## 这里传前端的问题ID为模板ID，为了在修改时间用户创建问题
+                                        q_dict = {'id': q.template_id, 'title': q.title, 'type': q.qtype,
                                                   'options': [{'id': o.id, 'option': o.content, 'score': str(round(o.score, 2) if o.score else 0),
                                                                'goto': o.goto} for o in q.options]}
                                         questions.append(q_dict)
@@ -116,7 +117,7 @@ class Questionnaires(Resource):
                                   'title': i.title, 'questions': questions, 'active': False, 'scoreSwitch': False,
                                   'id': i.id, 'for': respondent}
                             temp.append(ms)
-                resp = {'id': q.id, 'info': info, 'model': model, 'model_line': model_line}
+                resp = {'id': qn.id, 'info': info, 'model': model, 'model_line': model_line}
                 return jsonify(dict(resp, **STATE_CODE['200']))
             else:
                 return STATE_CODE['204']
@@ -201,19 +202,19 @@ class Questionnaires(Resource):
         if info is None:
             return STATE_CODE['400']
         ## update questionnaire
-        q = Questionnaire.query.filter(Questionnaire.id == id_put, Questionnaire.status == 0).one()
-        if q is None:
+        qn = Questionnaire.query.filter(Questionnaire.id == id_put, Questionnaire.status == 0).one()
+        if qn is None:
             return STATE_CODE['204']
-        q.title = info['title']
-        q.sub_title = info['mintitle']
-        q.direction = info['remark']
-        q.dt_modified = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        q.total_days = info['cycle']
-        q.medicine_id = info['treatmentID']
-        q.hospital_id = info['hospitalID']
-        q.department_id = info['subjectID']
-        q.modifier = 'mod_tester'
-        q.code = info['code']
+        qn.title = info['title']
+        qn.sub_title = info['mintitle']
+        qn.direction = info['remark']
+        qn.dt_modified = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        qn.total_days = info['cycle']
+        qn.medicine_id = info['treatmentID']
+        qn.hospital_id = info['hospitalID']
+        qn.department_id = info['subjectID']
+        qn.modifier = 'mod_tester'
+        qn.code = info['code']
         rsl = db.session.commit()
         if not rsl:
             ## update all model
@@ -224,10 +225,17 @@ class Questionnaires(Resource):
                 if model:
                     param.append('model')
                 ## delete all the struct about this questionnaire_id
-                if q.struct:
-                    [db.session.delete(o) for o in q.questions.options]
-                    [db.session.delete(q) for q in q.questions]
-                    [db.session.delete(s) for s in q.struct]
+                if qn.struct:
+                    qid_list = []
+                    for s in qn.struct:
+                        qs_str = re.split(',', s.question_id_list)
+                        qs_id = list(map(int, qs_str))
+                        qid_list += qs_id
+                    opts = Option.query.filter(Option.question_id.in_(qid_list)).all()
+                    Option.delete_all(opts)
+                    qs = Question.query.filter(Question.id.in_(qid_list)).all()
+                    Question.delete_all(qs)
+                    [db.session.delete(s) for s in qn.struct]
                     rsl = db.session.commit()
                     if rsl:
                         ## fail to delete all structs
@@ -247,6 +255,7 @@ class Questionnaires(Resource):
                     for m in model_list:
                         qid_list = []
                         qs = m['questions']
+                        print(qs)
                         day_start = m['start']
                         day_end = m['end']
                         interval = m['interval']
@@ -259,59 +268,57 @@ class Questionnaires(Resource):
                             period = None
                             time = None
                         ## build question and option
-                        q_max_id = Question.query.order_by(Question.id.desc()).first()
-                        max_id = q_max_id.id
-                        q_list = []
-                        opts_list = []
+                        # q_max_id = Question.query.order_by(Question.id.desc()).first()
+                        # max_id = q_max_id.id
+                        qid_list = []
                         for q in qs:
                             q_temp = QuestionTemp.query.filter_by(id=q['id']).one()
                             if q_temp:
-                                q = Question(id=max_id + 1, title=q_temp.title, need_answer=q_temp.need_answer,
-                                             questionnaire_id=q.id, qtype=q_temp.qtype, remark=q_temp.remark)
-                                q_list.append(q)
-                                ## save options for one question
-                                if q_temp.options:
-                                    options_str = re.split(r'[**]', q_temp.options)
-                                    options_list = list(options_str)
-                                    opt_list = []
-                                    for i in len(options_list):
-                                        score = float(q['options'][i]['score'] if q['options'][i]['score'] else 0)
-                                        goto = q['options'][i]['goto'] if q['options'][i]['goto'] else 0
-                                        opt = Option(question_id=max_id, content=options_list[i], score=score, goto=goto)
-                                        opt_list.append(opt)
-                                    opts_list += opt_list
-                                else:
-                                    goto = q.options[0]['goto'] if q.options[0]['goto'] else 0
-                                    opt = Option(question_id=max_id, content='', score=0, goto=goto)
-                                    opts_list.append(opt)
-                                qid_list.append(max_id)
-                                max_id = max_id + 1
-                                continue
+                                q_new = Question(title=q_temp.title, need_answer=q_temp.need_answer,
+                                                 questionnaire_id=qn.id, qtype=q_temp.qtype, remark=q_temp.remark,
+                                                 template_id=q_temp.id)
+                                q_rsl = Question.save(q_new)
+                                if q_rsl is not None:
+                                    rsl = Question.query.order_by(Question.id.desc()).first()
+                                    if rsl:
+                                        q_id = rsl.id
+                                        ## save options for one question
+                                        opt_list = []
+                                        if q_temp.qtype!= 3:
+                                            options_str = re.split(r'[**]', q_temp.options)
+                                            options_list = list(options_str)
+                                            for o in q['options']:
+                                                score = float(o['score'] if o['score'] else 0)
+                                                goto = o['goto'] if o['goto'] else 0
+                                                opt = Option(question_id=q_id, content=o['option'], score=score, goto=goto)
+                                                opt_list.append(opt)
+                                        else:
+                                            goto = 0
+                                            opt = Option(question_id=q_id, content='', score=0, goto=goto)
+                                            opt_list.append(opt)
+                                        rsl = Option.save_all(opt_list)
+                                        if rsl:
+                                            qid_list.append(q_id)
+                                            continue
+                                        else:
+                                            return STATE_CODE['203']
+                                    else:
+                                        return STATE_CODE['203']
                             else:
                                 return STATE_CODE['203']
-                        rsl = Option.save_all(opts_list)
-                        if rsl:
-                            rsl_q = Question.save_all(q_list)
-                            if rsl_q:
-                                ## save module
-                                qid_list_str = list(map(str, qid_list))
-                                qids_list = ','.join(qid_list_str)
-                                struct = QuestionnaireStruct(day_start=day_start, day_end=day_end, interval=interval,
-                                                             title=title, time=time, questionnaire_id=id_put,
-                                                             question_id_list=qids_list, process_type=process_type,
-                                                             respondent=respondent, period=period)
-                                m_list.append(struct)
-                                continue
-                            else:
-                                return STATE_CODE['203']
+                        ## save module
+                        qid_list_str = list(map(str, qid_list))
+                        qids_list = ','.join(qid_list_str)
+                        struct = QuestionnaireStruct(day_start=day_start, day_end=day_end, interval=interval,
+                                                     title=title, time=time, questionnaire_id=id_put,
+                                                     question_id_list=qids_list, process_type=process_type,
+                                                     respondent=respondent, period=period)
+                        rsl_s = QuestionnaireStruct.save(struct)
+                        if rsl_s:
+                            continue
                         else:
                             return STATE_CODE['203']
-                    rsl = QuestionnaireStruct.save_all(m_list)
-                    if rsl:
-                        continue
-                    else:
-                        return STATE_CODE['203']
-                return STATE_CODE['200']
+            return STATE_CODE['200']
         else:
             return STATE_CODE['203']
 
@@ -398,8 +405,8 @@ class QuestionTemps(Resource):
             q = QuestionTemp.query.filter_by(id=id_get).one()
             if q:
                 if q.options:
-                    options_str = re.split(r'[**]', q.options)
-                    options_list = list(options_str)
+                    options_str = re.split('[?*]', q.options)
+                    options_list = [x for x in options_str if x]
                 else:
                     options_list = []
                 options = [{'id': q.id, 'content': o} for o in options_list]
@@ -443,6 +450,7 @@ class QuestionTemps(Resource):
 
     def put(self):
         args = request.get_json()
+        print(args)
         id_put = args['id']
         title_put = args['title']
         type_put = args['type']

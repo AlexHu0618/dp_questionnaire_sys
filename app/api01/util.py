@@ -10,21 +10,27 @@
 from flask_restful import Resource
 from flask import jsonify
 from app import STATE_CODE
-from ..models import Hospital, Department, Medicine, Questionnaire
+from ..models import Hospital, Department, Medicine, Questionnaire, Doctor
 
 
 class Util(Resource):
     def get(self):
         ## hospitals
         hospitals = []
-        rsl = Hospital.query.all()
-        if rsl:
-            for h in rsl:
+        rsl_h = Hospital.query.all()
+        if rsl_h:
+            for h in rsl_h:
                 rsl_d = Department.query.filter(Department.hospital_id == h.id).all()
+                departments = []
                 if rsl_d:
-                    departments = [{'id': d.id, 'name': d.name} for d in rsl_d]
-                else:
-                    departments = []
+                    for d in rsl_d:
+                        rsl = Doctor.query.filter_by(department_id=d.id).all()
+                        if rsl:
+                            doctors = [{'id': i.id, 'name': i.name} for i in rsl]
+                        else:
+                            doctors = []
+                        department = {'id': d.id, 'name': d.name, 'doctors': doctors}
+                        departments.append(department)
                 hospital = {'id': h.id, 'name': h.name, 'subjects': departments}
                 hospitals.append(hospital)
         else:
@@ -46,5 +52,3 @@ class Util(Resource):
 
         resp = {'hospitals': hospitals, 'treatments': medicines}
         return jsonify(dict(resp, **STATE_CODE['200']))
-
-

@@ -21,14 +21,14 @@ login_manager.login_view = 'login.index'
 
 # create factory function
 def create_app(config_name):
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder='templates', static_folder='static/assets')
     app.config.from_object(config[config_name])  # load configuration
     config[config_name].init_app(app)
 
     db.init_app(app=app)
     bootstrap.init_app(app=app)
     moment.init_app(app=app)
-    login_manager.init_app(app=app)
+    # login_manager.init_app(app=app)
 
     # register the route blueprint to the app
     from .auth import auth as auth_blueprint

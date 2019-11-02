@@ -84,7 +84,6 @@ class Message(Resource):
             except Exception as e:
                 db.session.rollback()
                 return STATE_CODE['409']
-            return STATE_CODE['200']
         else:
             return STATE_CODE['204']
 
@@ -128,7 +127,7 @@ class Task(Resource):
                     dt_built_end = datetime.datetime.now() - datetime.timedelta(days=s.day_start)
                     print(s.questionnaire_id, dt_built_start, dt_built_end)
                     rsl = MapPatientQuestionnaire.query.filter(MapPatientQuestionnaire.questionnaire_id == s.questionnaire_id,
-                                                               MapPatientQuestionnaire.is_need_send_task == 1,
+                                                               MapPatientQuestionnaire.need_send_task_module.isnot(None),
                                                                MapPatientQuestionnaire.dt_built.between(dt_built_start, dt_built_end)).all()
                     if rsl:
                         p_qn_list = [{'id': i.id, 'sid': s.id, 'name': i.patient.name, 'modelName': s.title,
@@ -189,7 +188,7 @@ class Task(Resource):
                                 return STATE_CODE['203']
                         else:
                             return STATE_CODE['400']
-                rsl.is_need_send_task = 0
+                rsl.need_send_task_module = None
                 try:
                     db.session.commit()
                     return STATE_CODE['200']
