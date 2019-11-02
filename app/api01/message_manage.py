@@ -123,8 +123,8 @@ class Task(Resource):
                                                    QuestionnaireStruct.process_type == 1).all()
             if rsl_q_struct:
                 for s in rsl_q_struct:
-                    dt_built_start = datetime.datetime.now() - datetime.timedelta(days=s.day_end)
-                    dt_built_end = datetime.datetime.now() - datetime.timedelta(days=s.day_start)
+                    dt_built_start = (datetime.datetime.now() - datetime.timedelta(days=s.day_end - 1)).date()
+                    dt_built_end = (datetime.datetime.now() - datetime.timedelta(days=s.day_start - 2)).date()
                     print(s.questionnaire_id, dt_built_start, dt_built_end)
                     rsl = MapPatientQuestionnaire.query.filter(MapPatientQuestionnaire.questionnaire_id == s.questionnaire_id,
                                                                MapPatientQuestionnaire.need_send_task_module.isnot(None),
@@ -160,8 +160,8 @@ class Task(Resource):
                         ## it is a choice question
                         for oid in opt_list:
                             is_existed = ResultShudaifu.query
-                            rsl_r = ResultShudaifu(patient_id=patient_id, option_id=oid, dt_answer=dt_answer, is_doctor=1,
-                                                 question_id=q_id)
+                            rsl_r = ResultShudaifu(patient_id=patient_id, answer=oid, dt_answer=dt_answer, is_doctor=1,
+                                                 question_id=q_id, type=1)
                             db.session.add(rsl_r)
                             # if rsl_r.save():
                             #     continue
@@ -175,8 +175,8 @@ class Task(Resource):
                             if rsl_id:
                                 rsl_oid = Option.query.filter_by(question_id=q_id, content=text).order_by(Option.id.desc()).first()
                                 if rsl_oid:
-                                    rsl_sdf = ResultShudaifu(patient_id=patient_id, option_id=rsl_oid.id, dt_answer=dt_answer, is_doctor=1,
-                                                         question_id=q_id)
+                                    rsl_sdf = ResultShudaifu(patient_id=patient_id, answer=rsl_oid.id, dt_answer=dt_answer, is_doctor=1,
+                                                         question_id=q_id, type=3)
                                     db.session.add(rsl_sdf)
                                     # if rsl_sdf.save():
                                     #     continue
