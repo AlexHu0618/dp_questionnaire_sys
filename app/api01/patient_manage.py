@@ -43,7 +43,7 @@ class Patients(Resource):
                 qn = {'status': rsl.status, 'date': which_day_on, 'cycle': rsl.total_days, 'start': rsl.dt_built,
                      'records': {}}
                 resp = {'name': p.name, 'sex': p.sex, 'birthday': p.birthday, 'nation': p.nation, 'phone': p.tel,
-                        'email': p.email, 'age': rsl.age, 'height': rsl.height, 'weight': rsl.weight,
+                        'email': p.email, 'age': rsl.age, 'height': rsl.height, 'weight': rsl.weight, 'pid': p.id,
                         'smoking': rsl.is_smoking, 'drinking': rsl.is_drinking, 'surgery': rsl.is_operated,
                         'hospital': d.hospital_id, 'subject': d.department_id, 'treatment': d.medicine_id,
                         'reviewer': d.name, 'reviewTime': rsl.dt_built, 'questionnaire': qn}
@@ -76,7 +76,8 @@ class Patients(Resource):
             if rsl:
                 items = [{'name': i.patient.name, 'hospital': i.questionnaire.hospital.name, 'subject': i.questionnaire.department.name,
                          'treatment': i.questionnaire.medicine.name, 'sex': i.patient.sex, 'url': i.patient.url_portrait,
-                         'start': i.dt_built.strftime('%Y-%m-%d'), 'status': i.status} for i in rsl.items]
+                         'start': i.dt_built.strftime('%Y-%m-%d'), 'status': i.status, 'pid': i.patient_id,
+                          'qnid': i.questionnaire_id} for i in rsl.items]
                 resp = {'total': rsl.total, 'page': rsl.pages, 'items': items}
                 print(resp)
                 return jsonify(dict(resp, **STATE_CODE['200']))

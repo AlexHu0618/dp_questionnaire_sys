@@ -271,6 +271,7 @@ class MapPatientQuestionnaire(db.Model, Base):
     questionnaire_id = db.Column(db.ForeignKey('info_questionnaire.id'), nullable=False, index=True)
     weight = db.Column(db.Integer)
     height = db.Column(db.Integer)
+    age = db.Column(db.Integer)
     is_smoking = db.Column(db.Integer)
     is_drink = db.Column(db.Integer)
     is_operated = db.Column(db.Integer)

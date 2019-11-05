@@ -9,7 +9,7 @@
 
 from flask import Blueprint
 
-api_bp = Blueprint('api01', __name__, url_prefix='/api')  # the 2 arg is Blueprint name and which package the Blueprint belong to
+api_bp = Blueprint('api01', __name__, url_prefix='/api01')  # the 2 arg is Blueprint name and which package the Blueprint belong to
 
 
 from flask_restful import Api
@@ -18,6 +18,7 @@ from .patient_manage import Patients
 from .questionnaire_manage import Questionnaires, QuestionTemps
 from .util import Util
 from .message_manage import Message, Task
+from .download import Download
 
 
 api = Api(api_bp)
@@ -28,3 +29,4 @@ api.add_resource(Patients, '/patient')
 api.add_resource(Util, '/util')
 api.add_resource(Message, '/msg')
 api.add_resource(Task, '/task')
+api.add_resource(Download, '/download/excel')

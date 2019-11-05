@@ -159,7 +159,7 @@ class Task(Resource):
                     if opt_list:
                         ## it is a choice question
                         for oid in opt_list:
-                            is_existed = ResultShudaifu.query
+                            # is_existed = ResultShudaifu.query
                             rsl_r = ResultShudaifu(patient_id=patient_id, answer=oid, dt_answer=dt_answer, is_doctor=1,
                                                  question_id=q_id, type=1)
                             db.session.add(rsl_r)
