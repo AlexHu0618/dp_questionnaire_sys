@@ -60,7 +60,8 @@ class Patients(Resource):
             reqp = parser.parse_args().get('responsibility')
             size = parser.parse_args().get('size')
             page = parser.parse_args().get('page')
-            sql = MapPatientQuestionnaire.query.filter(MapPatientQuestionnaire.patient.name == name if name else text(''))
+            sql = MapPatientQuestionnaire.query.filter(MapPatientQuestionnaire.patient.name == name if name else text(''),
+                                                       MapPatientQuestionnaire.status.in_([1, 3]))
             if date_built:
                 sql = sql.filter(MapPatientQuestionnaire.dt_built.between(date_built['start'], date_built['end'])).order_by(
                     desc(MapPatientQuestionnaire.dt_built))

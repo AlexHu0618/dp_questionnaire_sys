@@ -9,7 +9,7 @@
 
 from flask import Blueprint
 
-api_bp = Blueprint('api01', __name__, url_prefix='/api01')  # the 2 arg is Blueprint name and which package the Blueprint belong to
+api_bp = Blueprint('api01', __name__, url_prefix='/api')  # the 2 arg is Blueprint name and which package the Blueprint belong to
 
 
 from flask_restful import Api

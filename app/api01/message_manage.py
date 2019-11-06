@@ -35,7 +35,7 @@ class Message(Resource):
         print(rsl.items)
         if rsl:
             msgs = [{'id': m.patient.id, 'name': m.patient.name, 'time': m.dt_built.strftime('%Y-%m-%d %H:%M:%S'),
-                     'sex': m.patient.sex, 'url': m.patient.url_portrait,
+                     'sex': m.patient.sex, 'url': m.patient.url_portrait, 'qnid': m.questionnaire_id,
                      'treatment': m.questionnaire.medicine.name} for m in rsl.items]
             resp = {'list': msgs, 'total': rsl.total}
             print(resp)
@@ -58,26 +58,31 @@ class Message(Resource):
         print(qn_id, p_id, result)
         rsl = MapPatientQuestionnaire.query.filter_by(patient_id=p_id, questionnaire_id=qn_id).one()
         if rsl:
-            total_day = QuestionnaireStruct.query.filter_by(questionnaire_id=qn_id).order_by(QuestionnaireStruct.day_end.desc()).first()
-            max_day = total_day.day_end
-            qn_struct_first = QuestionnaireStruct.query.filter_by(questionnaire_id=qn_id, respondent=0, period=1).one()
-            print(qn_struct_first)
-            if qn_struct_first:
-                day_start = qn_struct_first.day_start
-                day_end = qn_struct_first.day_end
-                interval = qn_struct_first.interval
+            if not result:
+                ## rejected
+                MapPatientQuestionnaire.delete(rsl)
             else:
-                return STATE_CODE['204']
-            if result:
-                rsl.status = 1
-            else:
-                rsl.status = 2
-            rsl.questionnaire_id = qn_id
-            rsl.dt_built = datetime.datetime.now()
-            rsl.total_days = max_day
-            rsl.current_period = 1
-            rsl.days_remained = day_end - day_start
-            rsl.interval = interval
+                total_day = QuestionnaireStruct.query.filter_by(questionnaire_id=qn_id).order_by(QuestionnaireStruct.day_end.desc()).first()
+                max_day = total_day.day_end
+                qn_struct_first = QuestionnaireStruct.query.filter_by(questionnaire_id=qn_id, respondent=0, period=1).one()
+                print(qn_struct_first)
+                if qn_struct_first:
+                    day_start = qn_struct_first.day_start
+                    day_end = qn_struct_first.day_end
+                    interval = qn_struct_first.interval
+                else:
+                    return STATE_CODE['204']
+                if result:
+                    rsl.status = 1
+                else:
+                    rsl.status = 2
+                rsl.questionnaire_id = qn_id
+                rsl.dt_built = datetime.datetime.now()
+                rsl.total_days = max_day
+                rsl.current_period = 1
+                rsl.days_remained = day_end - day_start
+                rsl.interval = interval
+                rsl.need_send_task_module = '582',
             try:
                 db.session.commit()
                 return STATE_CODE['200']
