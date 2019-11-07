@@ -323,48 +323,6 @@ class Questionnaires(Resource):
             return STATE_CODE['203']
 
 
-        #                 q_list = [i['id'] for i in qs]
-        #                 q_list = list(map(str, q_list))
-        #                 q_list_str = ','.join(q_list)
-        #                 struct = QuestionnaireStruct(day_start=day_start, day_end=day_end, interval=interval, title=title,
-        #                                              time=time, questionnaire_id=id_put, question_id_list=q_list_str,
-        #                                              process_type=process_type, respondent=respondent, period=period)
-        #                 rsl = QuestionnaireStruct.save(struct)
-        #                 if not rsl:
-        #                     return STATE_CODE['203']
-        #                 else:
-        #                     ## update process model
-        #                     for os_dict in qs:
-        #                         os_list = os_dict['options']
-        #                         if os_list is not None:
-        #                             ## it is not the gap filling
-        #                             for o in os_list:
-        #                                 option = Option.query.filter_by(id=o['id']).one()
-        #                                 if option:
-        #                                     option.score = float(o['score'] if o['score'] else 0)
-        #                                     print(option.id, option.score, type(option.score))
-        #                                     if 'goto' in o.keys():
-        #                                         if isinstance(o['goto'], int):
-        #                                             option.goto = o['goto']
-        #                                     try:
-        #                                         db.session.commit()
-        #                                     except Exception as e:
-        #                                         ## fail to update data
-        #                                         print(e)
-        #                                         db.session.rollback()
-        #                                         return STATE_CODE['203']
-        #                                 else:
-        #                                     return STATE_CODE['203']
-        #                         elif os_dict['type'] == 3:
-        #                             pass
-        #                         else:
-        #                             db.session.rollback()
-        #                             return STATE_CODE['203']
-        #     return STATE_CODE['200']
-        # else:
-        #     db.session.rollback()
-        #     return STATE_CODE['203']
-
     def delete(self):
         id_del = parser.parse_args().get('id')
         #################################

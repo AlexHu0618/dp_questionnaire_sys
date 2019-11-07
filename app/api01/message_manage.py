@@ -72,10 +72,7 @@ class Message(Resource):
                     interval = qn_struct_first.interval
                 else:
                     return STATE_CODE['204']
-                if result:
-                    rsl.status = 1
-                else:
-                    rsl.status = 2
+                rsl.status = 1
                 rsl.questionnaire_id = qn_id
                 rsl.dt_built = datetime.datetime.now()
                 rsl.total_days = max_day

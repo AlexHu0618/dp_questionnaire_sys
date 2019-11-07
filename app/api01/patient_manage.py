@@ -11,9 +11,11 @@
 from flask_restful import Resource, reqparse
 from flask import jsonify
 from app import STATE_CODE
-from ..models import MapPatientQuestionnaire, Questionnaire
+from ..models import MapPatientQuestionnaire, Questionnaire, ResultShudaifu, Question, Option
 import datetime
 from sqlalchemy import text
+import re
+from .. import db
 
 
 parser = reqparse.RequestParser()
@@ -40,13 +42,15 @@ class Patients(Resource):
                 p = rsl.patient
                 d = rsl.doctor
                 which_day_on = (datetime.datetime.now() - rsl.dt_built).days
-                qn = {'status': rsl.status, 'date': which_day_on, 'cycle': rsl.total_days, 'start': rsl.dt_built,
-                     'records': {}}
-                resp = {'name': p.name, 'sex': p.sex, 'birthday': p.birthday, 'nation': p.nation, 'phone': p.tel,
+                records = self.getRecord4patient(id_get)
+                qn = {'status': rsl.status, 'date': which_day_on, 'cycle': rsl.total_days,
+                      'start': datetime.datetime.strftime(rsl.dt_built, '%Y-%m-%d'), 'records': records}
+                resp = {'name': p.name, 'sex': p.sex, 'birthday': datetime.datetime.strftime(p.birthday, '%Y-%m-%d'),
+                        'nation': p.nation, 'phone': p.tel, 'avatarUrl': p.url_portrait,
                         'email': p.email, 'age': rsl.age, 'height': rsl.height, 'weight': rsl.weight, 'pid': p.id,
-                        'smoking': rsl.is_smoking, 'drinking': rsl.is_drinking, 'surgery': rsl.is_operated,
-                        'hospital': d.hospital_id, 'subject': d.department_id, 'treatment': d.medicine_id,
-                        'reviewer': d.name, 'reviewTime': rsl.dt_built, 'questionnaire': qn}
+                        'smoking': rsl.is_smoking, 'drinking': rsl.is_drink, 'surgery': rsl.is_operated,
+                        'hospital': d.department.hospital.name, 'subject': d.department.name, 'treatment': rsl.questionnaire.medicine.name,
+                        'reviewer': d.name, 'reviewTime': datetime.datetime.strftime(rsl.dt_built, '%Y-%m-%d'), 'questionnaire': qn}
                 return jsonify(dict(resp, **STATE_CODE['200']))
             else:
                 return STATE_CODE['204']
@@ -84,3 +88,72 @@ class Patients(Resource):
                 return jsonify(dict(resp, **STATE_CODE['200']))
             else:
                 return STATE_CODE['204']
+
+    def dateRange(self, begindate, enddate):
+        dates = []
+        dt = begindate.date()
+        date = begindate.date()
+        while date <= enddate.date():
+            dates.append(date)
+            dt = dt + datetime.timedelta(1)
+            date = dt
+        return dates
+
+    def getRecord4patient(self, pid):
+        records = []
+        rsl_r = db.session.query(ResultShudaifu, Question).join(Question, ResultShudaifu.question_id == Question.id).filter(
+            ResultShudaifu.patient_id == pid).order_by(ResultShudaifu.dt_answer).order_by(
+            ResultShudaifu.is_doctor).all()
+        print(db.session.query(ResultShudaifu, Question).join(Question, ResultShudaifu.question_id == Question.id).filter(
+            ResultShudaifu.patient_id == pid).order_by(ResultShudaifu.dt_answer).order_by(
+            ResultShudaifu.is_doctor))
+        if rsl_r:  # [(R, Q), ...]
+            print(rsl_r)
+            dt_min = rsl_r[0][0].dt_answer
+            dt_max = rsl_r[-1][0].dt_answer
+            date_list = self.dateRange(dt_min, dt_max)
+            print(date_list)
+            records = []
+            for date in date_list:  # search every day from begin to end
+                clock = False
+                is_doctor = False
+                questions = []
+                flag = 0
+                for r in rsl_r:  # search every record for matching date
+                    if r[0].dt_answer.date() == date:
+                        clock = True
+                        if r[0].is_doctor != flag:
+                            record = {'index': date_list.index(date) + 1, 'clock': clock, 'isDoctor': is_doctor,
+                                      'questions': questions}
+                            records.append(record)
+                            questions = []
+                            is_doctor = True
+                            flag = 1
+                        answer = self.getOption4oneQ(r[0].answer, r[0].type)
+                        item = {'ask': r[1].title, 'answer': answer}
+                        questions.append(item)
+                        continue
+                    elif r[0].dt_answer.date() < date:
+                        continue
+                    else:
+                        break
+                record = {'index': date_list.index(date) + 1, 'clock': clock, 'isDoctor': is_doctor, 'questions': questions}
+                records.append(record)
+            else:
+                pass
+            print(records)
+        return records
+
+    def getOption4oneQ(self, option_str, qtype):
+        option = []
+        if qtype == 2:  # multiple choice
+            opt_str = re.split(',', option_str)
+            opt_id_list = list(map(int, opt_str))
+            rsl = Option.query.filter(Option.id.in_(opt_id_list)).all()
+            if rsl:
+                option = [o.content for o in rsl]
+        else:  # single choice or filling
+            rsl = Option.query.filter(Option.id == int(option_str)).one_or_none()
+            if rsl:
+                option = [rsl.content]
+        return option
