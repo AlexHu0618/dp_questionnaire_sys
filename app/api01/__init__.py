@@ -19,6 +19,7 @@ from .questionnaire_manage import Questionnaires, QuestionTemps
 from .util import Util
 from .message_manage import Message, Task
 from .download import Download
+from .login import Login
 
 
 api = Api(api_bp)
@@ -30,3 +31,4 @@ api.add_resource(Util, '/util')
 api.add_resource(Message, '/msg')
 api.add_resource(Task, '/task')
 api.add_resource(Download, '/download/excel')
+api.add_resource(Login, '/login')

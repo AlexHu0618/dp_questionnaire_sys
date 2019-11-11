@@ -8,13 +8,13 @@
 # @version : 0.1.0
 
 from flask_restful import Resource, reqparse, request
-from flask import jsonify
+from flask import jsonify, session
 from app import STATE_CODE
 from ..models import MapPatientQuestionnaire, QuestionnaireStruct, Question, ResultShudaifu, Option
 import datetime
 from .. import db
 import re
-from sqlalchemy import exists
+from sqlalchemy import text, or_, and_
 
 
 parser = reqparse.RequestParser()
@@ -28,10 +28,11 @@ parser.add_argument("questions", type=list, location=["form", "json", "args"])
 
 class Message(Resource):
     def get(self):
+        did = session.get('did')
         page = parser.parse_args().get('page')
         size = parser.parse_args().get('size')
-        rsl = MapPatientQuestionnaire.query.filter_by(status=0).paginate(page=page if page else 1,
-                                                                         per_page=size if size else 10)
+        rsl = MapPatientQuestionnaire.query.filter(MapPatientQuestionnaire.status == 0,
+                                                   MapPatientQuestionnaire.doctor_id == did if did != 16 else text('')).paginate(page=page if page else 1, per_page=size if size else 10)
         print(rsl.items)
         if rsl:
             msgs = [{'id': m.patient.id, 'name': m.patient.name, 'time': m.dt_built.strftime('%Y-%m-%d %H:%M:%S'),
@@ -92,6 +93,7 @@ class Message(Resource):
 
 class Task(Resource):
     def get(self):
+        did = session.get('did')
         mpqn_id = parser.parse_args().get('id')
         s_id = parser.parse_args().get('sid')
         if mpqn_id and s_id :
@@ -120,22 +122,44 @@ class Task(Resource):
                 return STATE_CODE['204']
         else:
             ## query all task list
+            # task_list = []
+            # rsl_q_struct = QuestionnaireStruct.query.filter(QuestionnaireStruct.respondent == 1,
+            #                                        QuestionnaireStruct.process_type == 1).all()
+            # if rsl_q_struct:
+            #     for s in rsl_q_struct:
+            #         dt_built_start = (datetime.datetime.now() - datetime.timedelta(days=s.day_end - 1)).date()
+            #         dt_built_end = (datetime.datetime.now() - datetime.timedelta(days=s.day_start - 2)).date()
+            #         print(s.questionnaire_id, dt_built_start, dt_built_end)
+            #         rsl = MapPatientQuestionnaire.query.filter(MapPatientQuestionnaire.questionnaire_id == s.questionnaire_id,
+            #                                                    MapPatientQuestionnaire.need_send_task_module.isnot(None),
+            #                                                    MapPatientQuestionnaire.doctor_id == did if did != 16 else text(''),
+            #                                                    MapPatientQuestionnaire.dt_built.between(dt_built_start, dt_built_end)).all()
+            #         if rsl:
+            #             p_qn_list = [{'id': i.id, 'sid': s.id, 'name': i.patient.name, 'modelName': s.title,
+            #                           'time': i.dt_built.strftime('%Y-%m-%d %H:%M:%S'), 'sex': i.patient.sex,
+            #                           'url': i.patient.url_portrait, 'treatment': i.questionnaire.medicine.name} for i in rsl]
+            #             task_list += p_qn_list
+            #     resp = {'list': task_list}
+            #     print(resp)
+            #     return jsonify(dict(resp, **STATE_CODE['200']))
+            # else:
+            #     return STATE_CODE['204']
             task_list = []
-            rsl_q_struct = QuestionnaireStruct.query.filter(QuestionnaireStruct.respondent == 1,
-                                                   QuestionnaireStruct.process_type == 1).all()
-            if rsl_q_struct:
-                for s in rsl_q_struct:
-                    dt_built_start = (datetime.datetime.now() - datetime.timedelta(days=s.day_end - 1)).date()
-                    dt_built_end = (datetime.datetime.now() - datetime.timedelta(days=s.day_start - 2)).date()
-                    print(s.questionnaire_id, dt_built_start, dt_built_end)
-                    rsl = MapPatientQuestionnaire.query.filter(MapPatientQuestionnaire.questionnaire_id == s.questionnaire_id,
-                                                               MapPatientQuestionnaire.need_send_task_module.isnot(None),
-                                                               MapPatientQuestionnaire.dt_built.between(dt_built_start, dt_built_end)).all()
-                    if rsl:
-                        p_qn_list = [{'id': i.id, 'sid': s.id, 'name': i.patient.name, 'modelName': s.title,
-                                      'time': i.dt_built.strftime('%Y-%m-%d %H:%M:%S'), 'sex': i.patient.sex,
-                                      'url': i.patient.url_portrait, 'treatment': i.questionnaire.medicine.name} for i in rsl]
-                        task_list += p_qn_list
+            rsl = MapPatientQuestionnaire.query.filter(MapPatientQuestionnaire.need_send_task_module.isnot(None),
+                                                       MapPatientQuestionnaire.doctor_id == did if did != 16 else text('')).all()
+            if rsl:
+                for r in rsl:
+                    modules_str = re.split(',', r.need_send_task_module)
+                    module_id_list = list(map(int, modules_str))
+                    for mid in module_id_list:
+                        rsl_s = QuestionnaireStruct.query.filter_by(id=mid).one_or_none()
+                        if rsl_s:
+                            p_qn_dict = {'id': r.id, 'sid': rsl_s.id, 'name': r.patient.name, 'modelName': rsl_s.title,
+                                          'time': r.dt_built.strftime('%Y-%m-%d %H:%M:%S'), 'sex': r.patient.sex,
+                                          'url': r.patient.url_portrait, 'treatment': r.questionnaire.medicine.name}
+                            task_list.append(p_qn_dict)
+                        else:
+                            continue
                 resp = {'list': task_list}
                 print(resp)
                 return jsonify(dict(resp, **STATE_CODE['200']))

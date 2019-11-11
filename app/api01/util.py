@@ -7,10 +7,14 @@
 # @Blog    : http://www.gzrobot.net/aboutme
 # @version : 0.1.0
 
-from flask_restful import Resource
+from flask_restful import Resource, reqparse
 from flask import jsonify
 from app import STATE_CODE
 from ..models import Hospital, Department, Medicine, Questionnaire, Doctor
+
+
+parser = reqparse.RequestParser()
+parser.add_argument("userId", type=int, location=["form", "json", "args"])
 
 
 class Util(Resource):

@@ -28,7 +28,7 @@ def create_app(config_name):
     db.init_app(app=app)
     bootstrap.init_app(app=app)
     moment.init_app(app=app)
-    # login_manager.init_app(app=app)
+    login_manager.init_app(app=app)
 
     # register the route blueprint to the app
     from .auth import auth as auth_blueprint
@@ -50,7 +50,8 @@ STATE_CODE = {'200': {'code': 200, 'message': 'successful'},
               '204': {'code': 204, 'message': 'accessed and return none'},
               '205': {'code': 205, 'message': 'successful'},
               '206': {'code': 206, 'message': 'successful'},
-              '400': {'code': 400, 'message': 'request error, wrong param'}}
+              '400': {'code': 400, 'message': 'request error, wrong param'},
+              '401': {'code': 401, 'message': 'auth fail'}}
 
 
 # 1xx：信息响应类，表示接收到请求并且继续处理

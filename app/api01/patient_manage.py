@@ -9,7 +9,7 @@
 
 
 from flask_restful import Resource, reqparse
-from flask import jsonify
+from flask import jsonify, session
 from app import STATE_CODE
 from ..models import MapPatientQuestionnaire, Questionnaire, ResultShudaifu, Question, Option
 import datetime
@@ -35,6 +35,8 @@ class Patients(Resource):
         :return:
         """
         id_get = parser.parse_args().get('id')
+        did = session.get('did')
+        print('did = ', did)
         ## query single patient
         if id_get is not None:
             rsl = MapPatientQuestionnaire.query.filter_by(patient_id=id_get).first()
@@ -65,6 +67,7 @@ class Patients(Resource):
             size = parser.parse_args().get('size')
             page = parser.parse_args().get('page')
             sql = MapPatientQuestionnaire.query.filter(MapPatientQuestionnaire.patient.name == name if name else text(''),
+                                                       MapPatientQuestionnaire.doctor_id == did if did != 16 else text(''),
                                                        MapPatientQuestionnaire.status.in_([1, 3]))
             if date_built:
                 sql = sql.filter(MapPatientQuestionnaire.dt_built.between(date_built['start'], date_built['end'])).order_by(
@@ -102,11 +105,9 @@ class Patients(Resource):
     def getRecord4patient(self, pid):
         records = []
         rsl_r = db.session.query(ResultShudaifu, Question).join(Question, ResultShudaifu.question_id == Question.id).filter(
-            ResultShudaifu.patient_id == pid).order_by(ResultShudaifu.dt_answer).order_by(
-            ResultShudaifu.is_doctor).all()
+            ResultShudaifu.patient_id == pid).order_by(ResultShudaifu.is_doctor, ResultShudaifu.dt_answer).all()
         print(db.session.query(ResultShudaifu, Question).join(Question, ResultShudaifu.question_id == Question.id).filter(
-            ResultShudaifu.patient_id == pid).order_by(ResultShudaifu.dt_answer).order_by(
-            ResultShudaifu.is_doctor))
+            ResultShudaifu.patient_id == pid).order_by(ResultShudaifu.is_doctor, ResultShudaifu.dt_answer))
         if rsl_r:  # [(R, Q), ...]
             print(rsl_r)
             dt_min = rsl_r[0][0].dt_answer
@@ -132,7 +133,6 @@ class Patients(Resource):
                         answer = self.getOption4oneQ(r[0].answer, r[0].type)
                         item = {'ask': r[1].title, 'answer': answer}
                         questions.append(item)
-                        continue
                     elif r[0].dt_answer.date() < date:
                         continue
                     else:
