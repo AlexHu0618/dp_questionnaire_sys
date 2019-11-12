@@ -43,7 +43,7 @@ class Patients(Resource):
             if rsl:
                 p = rsl.patient
                 d = rsl.doctor
-                which_day_on = (datetime.datetime.now() - rsl.dt_built).days
+                which_day_on = (datetime.datetime.now().date() - rsl.dt_built.date()).days + 1
                 records = self.getRecord4patient(id_get)
                 qn = {'status': rsl.status, 'date': which_day_on, 'cycle': rsl.total_days,
                       'start': datetime.datetime.strftime(rsl.dt_built, '%Y-%m-%d'), 'records': records}
@@ -105,40 +105,69 @@ class Patients(Resource):
     def getRecord4patient(self, pid):
         records = []
         rsl_r = db.session.query(ResultShudaifu, Question).join(Question, ResultShudaifu.question_id == Question.id).filter(
-            ResultShudaifu.patient_id == pid).order_by(ResultShudaifu.is_doctor, ResultShudaifu.dt_answer).all()
+            ResultShudaifu.patient_id == pid).order_by(ResultShudaifu.dt_answer, ResultShudaifu.is_doctor).all()
         print(db.session.query(ResultShudaifu, Question).join(Question, ResultShudaifu.question_id == Question.id).filter(
-            ResultShudaifu.patient_id == pid).order_by(ResultShudaifu.is_doctor, ResultShudaifu.dt_answer))
+            ResultShudaifu.patient_id == pid).order_by(ResultShudaifu.dt_answer, ResultShudaifu.is_doctor))
         if rsl_r:  # [(R, Q), ...]
             print(rsl_r)
             dt_min = rsl_r[0][0].dt_answer
             dt_max = rsl_r[-1][0].dt_answer
+            rsl_m = MapPatientQuestionnaire.query.filter_by(patient_id=pid,
+                                                            questionnaire_id='ec0569f4-eff7-11e9-9d9c-000c2918b20d').one_or_none()
+            if rsl_m:
+                dt_min = rsl_m.dt_built
+                if rsl_m.status == 1:
+                    dt_max = datetime.datetime.now() - datetime.timedelta(1)
+            else:
+                pass
+            print(dt_min, dt_max)
             date_list = self.dateRange(dt_min, dt_max)
             print(date_list)
             records = []
             for date in date_list:  # search every day from begin to end
-                clock = False
-                is_doctor = False
-                questions = []
-                flag = 0
-                for r in rsl_r:  # search every record for matching date
+                doctor_record = {'index': date_list.index(date) + 1, 'clock': False, 'isDoctor': True, 'questions': []}
+                patient_record = {'index': date_list.index(date) + 1, 'clock': False, 'isDoctor': False, 'questions': []}
+                for r in rsl_r:
                     if r[0].dt_answer.date() == date:
-                        clock = True
-                        if r[0].is_doctor != flag:
-                            record = {'index': date_list.index(date) + 1, 'clock': clock, 'isDoctor': is_doctor,
-                                      'questions': questions}
-                            records.append(record)
-                            questions = []
-                            is_doctor = True
-                            flag = 1
                         answer = self.getOption4oneQ(r[0].answer, r[0].type)
                         item = {'ask': r[1].title, 'answer': answer}
-                        questions.append(item)
+                        if r[0].is_doctor:  # for doctor
+                            doctor_record['questions'].append(item)
+                        else:  # for patient
+                            patient_record['questions'].append(item)
                     elif r[0].dt_answer.date() < date:
                         continue
                     else:
                         break
-                record = {'index': date_list.index(date) + 1, 'clock': clock, 'isDoctor': is_doctor, 'questions': questions}
-                records.append(record)
+                # clock = False
+                # is_doctor = False
+                # questions = []
+                # flag = 0
+                # for r in rsl_r:  # search every record for matching date
+                #     if r[0].dt_answer.date() == date:
+                #         clock = True
+                #         if r[0].is_doctor != flag:  # is the is_doctor is the first one
+                #             record = {'index': date_list.index(date) + 1, 'clock': clock, 'isDoctor': is_doctor,
+                #                       'questions': questions}
+                #             records.append(record)
+                #             questions = []
+                #             is_doctor = True
+                #             flag = 1
+                #         answer = self.getOption4oneQ(r[0].answer, r[0].type)
+                #         item = {'ask': r[1].title, 'answer': answer}
+                #         questions.append(item)
+                #     elif r[0].dt_answer.date() < date:
+                #         continue
+                #     else:
+                #         break
+                # record = {'index': date_list.index(date) + 1, 'clock': clock, 'isDoctor': is_doctor, 'questions': questions}
+                # records.append(record)
+                if patient_record['questions']:
+                    patient_record['clock'] = True
+                records.append(patient_record)
+                if doctor_record['questions']:
+                    doctor_record['clock'] = True
+                    records.append(doctor_record)
             else:
                 pass
             print(records)

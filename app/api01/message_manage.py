@@ -35,7 +35,8 @@ class Message(Resource):
                                                    MapPatientQuestionnaire.doctor_id == did if did != 16 else text('')).paginate(page=page if page else 1, per_page=size if size else 10)
         print(rsl.items)
         if rsl:
-            msgs = [{'id': m.patient.id, 'name': m.patient.name, 'time': m.dt_built.strftime('%Y-%m-%d %H:%M:%S'),
+            msgs = [{'id': m.patient.id, 'name': m.patient.name,
+                     'time': None if m.dt_built is None else m.dt_built.strftime('%Y-%m-%d %H:%M:%S'),
                      'sex': m.patient.sex, 'url': m.patient.url_portrait, 'qnid': m.questionnaire_id,
                      'treatment': m.questionnaire.medicine.name} for m in rsl.items]
             resp = {'list': msgs, 'total': rsl.total}
@@ -73,9 +74,9 @@ class Message(Resource):
                     interval = qn_struct_first.interval
                 else:
                     return STATE_CODE['204']
-                rsl.status = 1
+                rsl.status = 4
                 rsl.questionnaire_id = qn_id
-                rsl.dt_built = datetime.datetime.now()
+                # rsl.dt_built = datetime.datetime.now()
                 rsl.total_days = max_day
                 rsl.current_period = 1
                 rsl.days_remained = day_end - day_start
