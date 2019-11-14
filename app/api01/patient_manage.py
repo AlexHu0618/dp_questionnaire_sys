@@ -139,29 +139,6 @@ class Patients(Resource):
                         continue
                     else:
                         break
-                # clock = False
-                # is_doctor = False
-                # questions = []
-                # flag = 0
-                # for r in rsl_r:  # search every record for matching date
-                #     if r[0].dt_answer.date() == date:
-                #         clock = True
-                #         if r[0].is_doctor != flag:  # is the is_doctor is the first one
-                #             record = {'index': date_list.index(date) + 1, 'clock': clock, 'isDoctor': is_doctor,
-                #                       'questions': questions}
-                #             records.append(record)
-                #             questions = []
-                #             is_doctor = True
-                #             flag = 1
-                #         answer = self.getOption4oneQ(r[0].answer, r[0].type)
-                #         item = {'ask': r[1].title, 'answer': answer}
-                #         questions.append(item)
-                #     elif r[0].dt_answer.date() < date:
-                #         continue
-                #     else:
-                #         break
-                # record = {'index': date_list.index(date) + 1, 'clock': clock, 'isDoctor': is_doctor, 'questions': questions}
-                # records.append(record)
                 if patient_record['questions']:
                     patient_record['clock'] = True
                 records.append(patient_record)
